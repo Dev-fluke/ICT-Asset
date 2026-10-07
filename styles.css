@@ -1,0 +1,194 @@
+/* styles.css */
+html, body {
+    font-family: 'Prompt', sans-serif;
+    background-color: #f4f6f9;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+}
+
+#app-container {
+    display: flex;
+    min-height: 100vh;
+    align-items: stretch;
+}
+
+/* Sidebar Placeholder: คงขนาดคงที่ 260px และตรึงหน้าจอ Sticky บนจอใหญ่ */
+#sidebar-placeholder {
+    width: 260px;
+    min-width: 260px;
+    max-width: 260px;
+    background-color: #1e293b;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+}
+
+@media (min-width: 992px) {
+    #sidebar-placeholder {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        max-height: 100vh;
+        z-index: 100;
+    }
+}
+
+.sidebar { 
+    width: 260px;
+    height: 100vh;
+    max-height: 100vh;
+    background-color: #1e293b !important; 
+    color: #fff; 
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.sidebar-nav-wrapper {
+    flex-grow: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+.sidebar-nav-wrapper::-webkit-scrollbar {
+    width: 4px;
+}
+
+.sidebar-nav-wrapper::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+}
+
+.sidebar-nav-wrapper::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.main-content {
+    flex-grow: 1;
+    background-color: #f8fafc;
+    overflow-x: hidden;
+    min-width: 0;
+    animation: fadeInContent 0.15s ease-in-out;
+}
+
+@keyframes fadeInContent {
+    from { opacity: 0.88; }
+    to { opacity: 1; }
+}
+
+.sidebar .nav-link {
+    color: #94a3b8;
+    padding: 10px 15px;
+    border-radius: 6px;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.sidebar .nav-link:hover {
+    color: #fff;
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.sidebar .nav-link.active,
+.sidebar .btn-toggle-nav a.nav-link.active {
+    color: #fff !important;
+    background-color: #0d6efd !important;
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3);
+}
+
+.sidebar .collapse .nav-link {
+    font-size: 0.875rem;
+    padding-left: 38px;
+    color: #cbd5e1;
+}
+
+/* Header & Card Styles */
+.header-box {
+    background: linear-gradient(135deg, #0d6efd, #0b5ed7);
+    color: white;
+    padding: 20px 25px;
+    border-radius: 12px;
+    margin-bottom: 25px;
+    box-shadow: 0 4px 15px rgba(13, 110, 253, 0.15);
+}
+
+.stat-card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+}
+
+.cat-chip {
+    display: inline-flex;
+    align-items: center;
+    background-color: #ffffff;
+    padding: 8px 16px;
+    border-radius: 50rem;
+    margin: 4px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+    border: 1px solid #e2e8f0;
+    font-weight: 500;
+}
+
+.card-custom {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+}
+
+.chart-container {
+    position: relative;
+    max-width: 380px;
+    margin: 0 auto;
+}
+
+/* Mobile Responsiveness for Sidebar */
+@media (max-width: 991.98px) {
+    #app-container {
+        flex-direction: column;
+    }
+
+    #sidebar-placeholder {
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
+        background-color: transparent !important;
+    }
+
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: -280px;
+        bottom: 0;
+        z-index: 1050;
+        transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .sidebar.show {
+        left: 0;
+    }
+
+    .sidebar-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1040;
+    }
+
+    .sidebar-overlay.show {
+        display: block;
+    }
+}

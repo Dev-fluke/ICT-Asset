@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เข้าสู่ระบบ - ระบบบริหารจัดการครุภัณฑ์คอมพิวเตอร์ นบโย.</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font: Prompt -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { 
+            font-family: 'Prompt', sans-serif; 
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #2563eb, #3b82f6);
+            top: -50px;
+            left: -50px;
+            filter: blur(80px);
+            opacity: 0.5;
+        }
+
+        body::after {
+            content: '';
+            position: absolute;
+            width: 350px;
+            height: 350px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            bottom: -80px;
+            right: -80px;
+            filter: blur(100px);
+            opacity: 0.4;
+        }
+
+        .card-login { 
+            border: 1px solid rgba(255, 255, 255, 0.15); 
+            border-radius: 24px; 
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3); 
+            width: 100%;
+            max-width: 440px;
+            position: relative;
+            z-index: 10;
+        }
+
+        .brand-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            color: #2563eb;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px auto;
+            box-shadow: 0 8px 16px rgba(37, 99, 235, 0.15);
+            transform: rotate(-3deg);
+            transition: all 0.3s ease;
+        }
+
+        .card-login:hover .brand-icon {
+            transform: rotate(0deg) scale(1.05);
+        }
+
+        .form-control {
+            border-radius: 0 12px 12px 0;
+            padding: 12px 16px;
+            border-color: #e2e8f0;
+            font-size: 0.95rem;
+        }
+
+        .form-control:focus {
+            box-shadow: none;
+            border-color: #2563eb;
+        }
+
+        .input-group-text {
+            border-radius: 12px 0 0 12px;
+            border-color: #e2e8f0;
+            padding-left: 16px;
+            padding-right: 16px;
+        }
+
+        .input-group:focus-within .input-group-text {
+            border-color: #2563eb;
+            color: #2563eb !important;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            border: none;
+            border-radius: 12px;
+            padding: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+        }
+
+        .alert-custom {
+            border-radius: 12px;
+            font-size: 0.875rem;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container p-3">
+        <div class="card card-login p-4 p-md-5 mx-auto">
+            
+            <div class="text-center mb-4">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-laptop-code fs-1"></i>
+                </div>
+                <h4 class="fw-bold text-dark m-0">เข้าสู่ระบบ</h4>
+                <p class="text-muted small mt-1">ระบบบริหารจัดการครุภัณฑ์คอมพิวเตอร์ อย.</p>
+            </div>
+
+            <div id="error-alert" class="alert alert-danger alert-custom align-items-center mb-3" role="alert">
+                <i class="fa-solid fa-circle-exclamation me-2 fs-5"></i>
+                <span id="error-message">ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง</span>
+            </div>
+
+            <form onsubmit="login(event)">
+                <div class="mb-3">
+                    <label class="form-label text-secondary small fw-semibold">ชื่อผู้ใช้งาน</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-user"></i></span>
+                        <input type="text" id="username" class="form-control bg-light" placeholder="กรอกชื่อผู้ใช้งาน" value="admin" required>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label text-secondary small fw-semibold">รหัสผ่าน</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-lock"></i></span>
+                        <input type="password" id="password" class="form-control bg-light" placeholder="กรอกรหัสผ่าน" value="1234" required>
+                    </div>
+                </div>
+
+                <button type="submit" id="btn-login" class="btn btn-primary w-100 fs-6 shadow-sm fw-bold">
+                    เข้าสู่ระบบ <i class="fa-solid fa-arrow-right-to-bracket ms-1"></i>
+                </button>
+            </form>
+
+            <div class="text-center mt-4 pt-3 border-top">
+                <!-- <p class="text-muted small mb-0"> Default Admin: <span class="fw-semibold text-dark">admin / admin123</span></p> -->
+            </div>
+        </div>
+    </div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // ตรวจสอบสถานะการ Login เดิม
+    if (localStorage.getItem('isLoggedIn') === 'true' && (localStorage.getItem('user') || localStorage.getItem('user_session'))) {
+        window.location.href = 'dashboard.html';
+    }
+
+    async function login(e) {
+        e.preventDefault();
+        const usernameInput = document.getElementById('username').value.trim();
+        const passwordInput = document.getElementById('password').value.trim();
+        const btnLogin = document.getElementById('btn-login');
+        const alertBox = document.getElementById('error-alert');
+        const alertMsg = document.getElementById('error-message');
+
+        alertBox.style.display = 'none';
+        btnLogin.disabled = true;
+        btnLogin.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> กำลังเข้าสู่ระบบ...';
+
+        try {
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: usernameInput, password: passwordInput })
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                const userObj = data.user || data.data || data;
+
+                // บันทึกสถานะ และข้อมูลงใน Storage ทั้ง 2 รูปแบบรองรับหน้าอื่น ๆ
+                localStorage.setItem('isLoggedIn', 'true');
+                localStorage.setItem('user', JSON.stringify(userObj));
+                localStorage.setItem('user_session', JSON.stringify(userObj));
+                
+                // สร้าง Session Cookie เพื่อตรวจจับกรณีปิด Browser
+                document.cookie = "browser_session_active=true; path=/; SameSite=Lax";
+
+                window.location.href = 'dashboard.html';
+            } else {
+                alertMsg.innerText = data.message || 'ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง';
+                alertBox.style.display = 'flex';
+            }
+        } catch (err) {
+            // Fallback จำลองระบบ เมื่อยังไม่ได้ต่อ Database หรือระบบออฟไลน์
+            if (usernameInput === 'admin') {
+                const mockUser = {
+                    id: 1,
+                    username: 'admin',
+                    fullname: 'ผู้ดูแลระบบ บก.อย.',
+                    role: 'Admin',
+                    avatar_url: ''
+                };
+                localStorage.setItem('isLoggedIn', 'true');
+                localStorage.setItem('user', JSON.stringify(mockUser));
+                localStorage.setItem('user_session', JSON.stringify(mockUser));
+                document.cookie = "browser_session_active=true; path=/; SameSite=Lax";
+
+                window.location.href = 'dashboard.html';
+                return;
+            }
+
+            alertMsg.innerText = 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการรัน server.js';
+            alertBox.style.display = 'flex';
+        } finally {
+            btnLogin.disabled = false;
+            btnLogin.innerHTML = 'เข้าสู่ระบบ <i class="fa-solid fa-arrow-right-to-bracket ms-1"></i>';
+        }
+    }
+</script>
+</body>
+</html>

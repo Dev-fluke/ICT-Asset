@@ -1,0 +1,1351 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>จัดการครุภัณฑ์ - แจ้งซ่อมและสำรวจ</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font: Prompt -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+            --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            --border-radius: 1rem;
+        }
+        body {
+            font-family: 'Prompt', sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        .main-container {
+            width: 100%;
+            max-width: 800px;
+        }
+        .card-custom {
+            border: none;
+            border-radius: var(--border-radius);
+            box-shadow: var(--card-shadow);
+            background: #ffffff;
+            transition: all 0.3s ease;
+        }
+        .card-header-custom {
+            background: var(--primary-gradient);
+            color: white;
+            border-top-left-radius: var(--border-radius);
+            border-top-right-radius: var(--border-radius);
+            padding: 1.25rem 1.5rem;
+        }
+        .btn {
+            border-radius: 0.5rem;
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            transition: all 0.2s;
+        }
+        .form-control, .form-select {
+            border-radius: 0.5rem;
+            padding: 0.6rem 0.75rem;
+            font-size: 0.95rem;
+            border: 1px solid #ced4da;
+        }
+        .form-control:focus, .form-select:focus {
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15);
+            border-color: #0d6efd;
+        }
+        @media (max-width: 576px) {
+            body { padding: 0.5rem; }
+            .card-custom { padding: 1rem !important; }
+            .btn { padding: 0.4rem 0.8rem; font-size: 0.9rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="card card-custom p-4 mb-4">
+            
+            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-3">
+                <h4 class="fw-bold m-0 text-primary">
+                    <i class="fa-solid fa-boxes-packing me-2"></i>ระบบจัดการครุภัณฑ์สารสนเทศ อย.
+                </h4>
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="button" id="btn-toggle-edit" class="btn btn-sm btn-outline-warning staff-or-admin" style="display: none;" onclick="toggleEditMode()">
+                        <i class="fa-solid fa-pen-to-square me-1"></i> แก้ไขข้อมูล
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-danger staff-or-admin" style="display: none;" onclick="logoutAdmin()" title="ออกจากระบบ">
+                        <i class="fa-solid fa-right-from-bracket me-1"></i> ออกจากระบบ (<span id="user-display-name"></span>)
+                    </button>
+                </div>
+            </div>
+            <hr class="mt-2 mb-3">
+
+            <!-- ส่วนแสดงข้อมูลอุปกรณ์ -->
+            <div id="eq-info-container">
+                <div class="text-center py-4 text-muted" id="eq-loading">
+                    <div class="spinner-border text-primary spinner-border-sm me-2" role="status"></div>
+                    กำลังโหลดข้อมูลอุปกรณ์...
+                </div>
+
+                <!-- View Mode -->
+                <div id="view-mode-card" style="display: none;">
+                    <div class="bg-light p-3 p-md-4 rounded border">
+                        <div class="row g-3">
+                            <div class="col-sm-6"><strong>ชื่อเครื่อง:</strong> <span id="v-computer-name" class="text-primary fw-bold"></span></div>
+                            <div class="col-sm-6"><strong>สถานะปัจจุบัน:</strong> <span id="v-status-badge"></span></div>
+                            <div class="col-sm-6"><strong>ชื่อผู้ใช้งาน:</strong> <span id="v-user-name"></span></div>
+                            <div class="col-sm-6"><strong>ตำแหน่ง:</strong> <span id="v-position"></span></div>
+                            <div class="col-sm-6"><strong>เบอร์โทรศัพท์:</strong> <span id="v-phone"></span></div>
+                            <div class="col-sm-6"><strong>หมวดหมู่:</strong> <span id="v-category"></span></div>
+                            <div class="col-sm-6"><strong>สังกัด:</strong> <span id="v-department"></span></div>
+                            <div class="col-sm-12"><strong>หน่วยงาน:</strong> <span id="v-organization"></span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Edit Mode -->
+                <div id="edit-mode-card" style="display: none;">
+                    <form id="edit-eq-form" class="bg-light p-3 p-md-4 rounded border">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">ชื่อเครื่อง <span class="text-danger">*</span></label>
+                                <input type="text" id="edit-computer-name" class="form-control form-control-sm" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">สถานะ</label>
+                                <select id="edit-status" class="form-select form-select-sm">
+                                    <option value="ใช้งานปกติ">ใช้งานปกติ</option>
+                                    <option value="ส่งซ่อม">ส่งซ่อม</option>
+                                    <option value="จำหน่าย">จำหน่าย</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">ชื่อผู้ใช้งาน</label>
+                                <input type="text" id="edit-user-name" class="form-control form-control-sm">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">ตำแหน่ง</label>
+                                <input type="text" id="edit-position" class="form-control form-control-sm" placeholder="ระบุตำแหน่ง">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">เบอร์โทรศัพท์</label>
+                                <input type="text" id="edit-phone" class="form-control form-control-sm">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">อีเมล ทอ.</label>
+                                <input type="email" id="edit-email" class="form-control form-control-sm" placeholder="example@rtaf.mi.th">
+                            </div>
+                            
+                            <!-- หมวดหมู่ -->
+                            <div class="col-md-6">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label small fw-bold mb-0">หมวดหมู่</label>
+                                    <button type="button" id="btn-manage-category" class="btn btn-xs btn-outline-primary py-0 px-1 admin-only-action" style="font-size: 0.7rem; display: none;" onclick="openManageModal('category')">
+                                        <i class="fa-solid fa-gear"></i> จัดการหมวดหมู่
+                                    </button>
+                                </div>
+                                <select id="edit-category" class="form-select form-select-sm">
+                                    <option value="">-- เลือกหมวดหมู่ --</option>
+                                </select>
+                            </div>
+                            <!-- สังกัด -->
+                            <div class="col-md-6">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label small fw-bold mb-0">สังกัด <span class="text-muted" style="font-size: 0.65rem;">(ไม่อนุญาตให้แก้ไข)</span></label>
+                                    <button type="button" id="btn-manage-department" class="btn btn-xs btn-outline-primary py-0 px-1 admin-only-action" style="font-size: 0.7rem; display: none;" onclick="openManageModal('department')">
+                                        <i class="fa-solid fa-gear"></i> จัดการสังกัด
+                                    </button>
+                                </div>
+                                <select id="edit-department" class="form-select form-select-sm" onchange="onDepartmentChange()">
+                                    <option value="">-- เลือกสังกัด --</option>
+                                </select>
+                            </div>
+                            <!-- หน่วยงาน -->
+                            <div class="col-12">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label small fw-bold mb-0">หน่วยงาน</label>
+                                    <button type="button" id="btn-manage-organization" class="btn btn-xs btn-outline-primary py-0 px-1 staff-manage-action" style="font-size: 0.7rem; display: none;" onclick="openManageModal('organization')">
+                                        <i class="fa-solid fa-gear"></i> จัดการหน่วยงาน
+                                    </button>
+                                </div>
+                                <select id="edit-organization" class="form-select form-select-sm">
+                                    <option value="">-- เลือกหน่วยงาน --</option>
+                                </select>
+                            </div>
+                            
+                            <!-- ส่วนข้อมูลรายละเอียดเพิ่มเติม -->
+                            <div class="col-12 border-top pt-3 mt-2">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <label class="form-label fw-bold mb-0 small">
+                                        <i class="fa-solid fa-list-check me-1"></i> รายละเอียดเพิ่มเติม / สเปก
+                                    </label>
+                                    <div class="d-flex align-items-center gap-1">
+                                        <button type="button" class="btn btn-xs btn-outline-secondary me-1 staff-or-admin" style="font-size: 0.75rem; padding: 2px 6px; display: none;" data-bs-toggle="modal" data-bs-target="#manageAttributeModal">
+                                            <i class="fa-solid fa-gear me-1"></i> จัดการหัวข้อ
+                                        </button>
+                                        <button type="button" class="btn btn-xs btn-outline-success" style="font-size: 0.75rem; padding: 2px 6px;" onclick="addDetailRow()">
+                                            <i class="fa-solid fa-plus me-1"></i> เพิ่มหัวข้อ
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="detail-list-container"></div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2 mt-3 pt-2 border-top">
+                            <button type="button" class="btn btn-sm btn-secondary" onclick="toggleEditMode(false)">ยกเลิก</button>
+                            <button type="button" class="btn btn-sm btn-primary px-3" onclick="saveEquipmentDetail()">
+                                <i class="fa-solid fa-floppy-disk me-1"></i> บันทึกข้อมูล
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Modal จัดการหัวข้อสเปกมาตรฐาน -->
+            <div class="modal fade" id="manageAttributeModal" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content border-0 shadow">
+                        <div class="modal-header bg-light">
+                            <h5 class="modal-title fw-bold fs-6">⚙️ จัดการหัวข้อสเปกมาตรฐาน</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body p-4">
+                            <div class="input-group mb-3">
+                                <input type="text" id="new-attr-name" class="form-control form-control-sm" placeholder="ระบุชื่อหัวข้อใหม่ (เช่น RAM, CPU)">
+                                <button class="btn btn-primary btn-sm" onclick="addAttribute()">➕ เพิ่ม</button>
+                            </div>
+                            <ul class="list-group small" id="attribute-list"></ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal จัดการข้อมูลกลาง (หมวดหมู่ / สังกัด / หน่วยงาน) -->
+            <div class="modal fade" id="manageMasterModal" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content border-0 shadow">
+                        <div class="modal-header bg-light">
+                            <h5 class="modal-title fw-bold fs-6" id="master-modal-title">⚙️ จัดการข้อมูล</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body p-4">
+                            <div id="master-dept-select-container" class="mb-3" style="display: none;">
+                                <label class="form-label small fw-bold">สังกัด (สำหรับหน่วยงานนี้)</label>
+                                <select id="master-modal-dept-id" class="form-select form-select-sm">
+                                    <option value="">-- เลือกสังกัด --</option>
+                                </select>
+                            </div>
+                            <div class="input-group mb-3" id="master-add-input-group">
+                                <input type="text" id="new-master-name" class="form-control form-control-sm" placeholder="ระบุชื่อรายการใหม่">
+                                <button class="btn btn-primary btn-sm" onclick="addMasterItem()">➕ เพิ่ม</button>
+                            </div>
+                            <ul class="list-group small" id="master-item-list" style="max-height: 250px; overflow-y: auto;"></ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ยืนยันตัวตนเจ้าหน้าที่ (Admin / Staff Login) -->
+            <div id="admin-login-box" class="user-only" style="display: block;">
+                <hr class="my-4">
+                <div class="bg-light p-3 rounded border">
+                    <h6 class="form-section-title text-primary mb-2">
+                        <i class="fa-solid fa-user-shield me-2"></i>สำหรับเจ้าหน้าที่ (Admin / Staff)
+                    </h6>
+                    <form onsubmit="loginInline(event)">
+                        <div class="row g-2 mb-2">
+                            <div class="col-6">
+                                <input type="text" id="inline-user" class="form-control form-control-sm" placeholder="Username" required>
+                            </div>
+                            <div class="col-6">
+                                <input type="password" id="inline-pass" class="form-control form-control-sm" placeholder="Password" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm w-100">
+                            <i class="fa-solid fa-key me-1"></i> เข้าสู่ระบบ
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- สำรวจประจำปี (Admin & Staff) -->
+            <div id="admin-audit-section" class="staff-or-admin" style="display: none;">
+                <hr class="my-4">
+                <div class="bg-light p-3 rounded border">
+                    <h6 class="form-section-title text-success mb-2">
+                        <i class="fa-solid fa-clipboard-check me-2"></i>สำรวจประจำปี (สำหรับเจ้าหน้าที่)
+                    </h6>
+                    <div id="audit-title-box" class="mb-3 text-dark small fw-bold"></div>
+                    <button id="btn-submit-audit" onclick="submitAudit()" class="btn btn-success btn-lg w-100 shadow py-3 fs-5 fw-bold" disabled>
+                        <i class="fa-solid fa-circle-check me-2"></i> ยืนยันการสำรวจ
+                    </button>
+                </div>
+            </div>
+
+            <!-- แจ้งซ่อม (User & Admin) -->
+            <div id="repair-section">
+                <hr class="my-4">
+                <div class="bg-light p-3 rounded border">
+                    <h6 class="form-section-title text-danger mb-3">
+                        <i class="fa-solid fa-wrench me-2"></i>สำหรับผู้ใช้งาน (User) / แจ้งซ่อมอุปกรณ์
+                    </h6>
+
+                    <div id="repair-disabled-msg" class="alert alert-warning mb-0 text-center small" style="display: none;">
+                        <i class="fa-solid fa-triangle-exclamation me-1"></i> 
+                        <strong>อุปกรณ์นี้กำลังอยู่ระหว่างส่งซ่อม</strong> ไม่สามารถส่งเรื่องแจ้งซ่อมซ้ำได้
+                    </div>
+
+                    <div id="repair-form-container">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">ชื่อผู้แจ้ง / สังกัด <span class="text-danger">*</span></label>
+                            <input type="text" id="reporter" class="form-control form-control-sm" placeholder="ระบุชื่อของคุณ">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">อาการเสีย / ปัญหาที่พบ <span class="text-danger">*</span></label>
+                            <textarea id="symptom" class="form-control form-control-sm" rows="3" placeholder="ระบุอาการ..."></textarea>
+                        </div>
+                        <button id="btn-submit-repair" onclick="submitRepair()" class="btn btn-danger btn-sm w-100 shadow-sm">
+                            <i class="fa-solid fa-paper-plane me-1"></i> ส่งเรื่องแจ้งซ่อม
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- JavaScript Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function getParam(key) {
+            const params = new URLSearchParams(window.location.search);
+            return params.get(key);
+        }
+
+        function getEquipmentParam() {
+            return getParam('id') || getParam('code');
+        }
+
+        let currentEquipment = null;
+        let isEditMode = false;
+        let categoryOptions = [];
+        let departmentOptions = [];
+        let organizationOptions = []; 
+        let currentAttributes = [];
+        let activeAuditRound = null;
+        let currentManageType = ''; // 'category', 'department', 'organization'
+
+        window.onload = async function() {
+            const eqCode = getEquipmentParam();
+            if (!eqCode) {
+                document.getElementById('eq-info-container').innerHTML = '<div class="alert alert-danger m-0">ไม่พบรหัส หรือ ID อุปกรณ์ใน URL</div>';
+                return;
+            }
+
+            await loadOptions();
+            await loadAttributes();
+            await loadActiveAuditRounds();
+            await loadEquipmentDetail();
+            await checkSystemSettingsForRepair();
+        };
+
+        async function checkSystemSettingsForRepair() {
+            try {
+                const res = await fetch('/api/system/settings');
+                if (res.ok) {
+                    const data = await res.json();
+                    const s = data.settings || {};
+                    const isEnabled = s.repair_portal_enabled !== false && String(s.repair_portal_enabled) !== 'false';
+                    
+                    const storedRole = (localStorage.getItem('user_role') || '').toLowerCase();
+                    const isStaffOrAdmin = storedRole === 'admin' || storedRole === 'staff';
+
+                    const repairSection = document.getElementById('repair-section');
+                    if (repairSection) {
+                        if (!isEnabled && !isStaffOrAdmin) {
+                            repairSection.style.display = 'none';
+                        } else {
+                            repairSection.style.display = 'block';
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('checkSystemSettingsForRepair error:', e);
+            }
+        }
+
+        function checkUserRole() {
+            const storedRole = (localStorage.getItem('user_role') || '').toLowerCase();
+            const storedName = localStorage.getItem('user_fullname') || 'เจ้าหน้าที่';
+            const storedDeptId = localStorage.getItem('user_dept_id');
+            const eqDeptId = currentEquipment ? (currentEquipment.department_id || (currentEquipment.department ? currentEquipment.department.id : null)) : null;
+
+            const isAuthorized = storedRole === 'admin' || storedRole === 'staff';
+            const isAdmin = storedRole === 'admin';
+
+            if (isAuthorized) {
+                const displayNameEl = document.getElementById('user-display-name');
+                if (displayNameEl) displayNameEl.textContent = storedName;
+            }
+
+            document.querySelectorAll('.staff-or-admin').forEach(el => {
+                if (el.id === 'admin-audit-section') {
+                    el.style.display = (isAuthorized && activeAuditRound) ? 'block' : 'none';
+                } else if (el.id === 'btn-toggle-edit') {
+                    if (storedRole === 'staff' && String(storedDeptId) !== String(eqDeptId)) {
+                        el.style.display = 'none';
+                    } else {
+                        el.style.display = isAuthorized ? 'inline-block' : 'none';
+                    }
+                } else {
+                    el.style.display = isAuthorized ? 'block' : 'none';
+                }
+            });
+
+            document.querySelectorAll('.admin-only-action').forEach(el => {
+                el.style.display = isAdmin ? 'inline-block' : 'none';
+            });
+
+            document.querySelectorAll('.staff-manage-action').forEach(el => {
+                el.style.display = isAuthorized ? 'inline-block' : 'none';
+            });
+
+            document.querySelectorAll('.user-only').forEach(el => {
+                el.style.display = isAuthorized ? 'none' : 'block';
+            });
+
+            checkSystemSettingsForRepair();
+        }
+
+        async function loginInline(event) {
+            if (event) event.preventDefault();
+
+            const username = document.getElementById('inline-user').value.trim();
+            const password = document.getElementById('inline-pass').value.trim();
+
+            if (!username || !password) {
+                alert('กรุณากรอก Username และ Password');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    const userRole = (data.user.role || 'staff').toLowerCase();
+                    const userDeptId = data.user.department_id;
+                    const eqDeptId = currentEquipment ? (currentEquipment.department_id || (currentEquipment.department ? currentEquipment.department.id : null)) : null;
+
+                    if (userRole === 'staff' && eqDeptId && String(userDeptId) !== String(eqDeptId)) {
+                        alert('คุณไม่มีสิทธิ์เข้าสำรวจหน่วยอื่น');
+                        return;
+                    }
+
+                    localStorage.setItem('user_id', data.user.id);
+                    localStorage.setItem('user_role', userRole);
+                    localStorage.setItem('user_dept_id', userDeptId || '');
+                    localStorage.setItem('user_fullname', data.user.fullname || data.user.username);
+
+                    alert(`เข้าสู่ระบบสำเร็จ! ยินดีต้อนรับ ${data.user.fullname || username}`);
+                    checkUserRole();
+                    if (typeof checkAuditStatus === 'function') {
+                        checkAuditStatus();
+                    }
+                } else {
+                    alert(data.message || 'ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง');
+                }
+            } catch (err) {
+                console.error('Login error:', err);
+                alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
+            }
+        }
+
+        function logoutAdmin() {
+            if (confirm('คุณต้องการออกจากระบบหรือไม่?')) {
+                localStorage.removeItem('user_id');
+                localStorage.removeItem('user_role');
+                localStorage.removeItem('user_dept_id');
+                localStorage.removeItem('user_fullname');
+                checkUserRole();
+                if (typeof isEditMode !== 'undefined' && isEditMode) toggleEditMode(false);
+            }
+        }
+
+        async function loadOptions() {
+            try {
+                const [resCat, resDept, resOrg] = await Promise.all([
+                    fetch('/api/categories'),
+                    fetch('/api/departments'),
+                    fetch('/api/organizations').catch(() => ({ ok: false }))
+                ]);
+                if (resCat.ok) categoryOptions = await resCat.json();
+                if (resDept.ok) departmentOptions = await resDept.json();
+                if (resOrg && resOrg.ok) {
+                    organizationOptions = await resOrg.json();
+                }
+
+                renderDropdownOptions();
+            } catch (err) {
+                console.error('Error loading options:', err);
+            }
+        }
+
+        async function loadAttributes() {
+            try {
+                const res = await fetch('/api/equipment-attributes');
+                if (res.ok) {
+                    currentAttributes = await res.json();
+                    renderAttributesOptions();
+                }
+            } catch (err) {
+                console.error('Error loading attributes:', err);
+            }
+        }
+
+        function renderAttributesOptions() {
+            let attrListHtml = '';
+            if (Array.isArray(currentAttributes) && currentAttributes.length > 0) {
+                currentAttributes.forEach((attr, idx) => {
+                    attrListHtml += `
+                        <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+                            <span>${escapeHtml(attr.name)}</span>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-secondary btn-sm" style="font-size: 0.7rem;" onclick="moveAttribute(${idx}, 'up')" ${idx === 0 ? 'disabled' : ''}><i class="fa-solid fa-arrow-up"></i></button>
+                                <button class="btn btn-outline-secondary btn-sm" style="font-size: 0.7rem;" onclick="moveAttribute(${idx}, 'down')" ${idx === currentAttributes.length - 1 ? 'disabled' : ''}><i class="fa-solid fa-arrow-down"></i></button>
+                                <button class="btn btn-outline-warning btn-sm" style="font-size: 0.7rem;" onclick="editAttribute(${attr.id}, '${escapeHtml(attr.name)}')"><i class="fa-solid fa-pen-to-square"></i></button>
+                                <button class="btn btn-outline-danger btn-sm" style="font-size: 0.7rem;" onclick="deleteAttribute(${attr.id})"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </li>`;
+                });
+            } else {
+                attrListHtml = '<li class="list-group-item text-center text-muted py-3">ยังไม่มีหัวข้อมาตรฐาน</li>';
+            }
+            const attrListEl = document.getElementById('attribute-list');
+            if (attrListEl) attrListEl.innerHTML = attrListHtml;
+        }
+
+        async function addAttribute() {
+            const input = document.getElementById('new-attr-name');
+            const name = input.value.trim();
+            if (!name) return alert('กรุณากรอกชื่อหัวข้อ');
+
+            try {
+                const res = await fetch('/api/equipment-attributes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+                if (res.ok) {
+                    input.value = '';
+                    await loadAttributes();
+                    updateAllDetailDropdowns();
+                }
+            } catch (err) { alert('เกิดข้อผิดพลาด'); }
+        }
+
+        async function moveAttribute(index, direction) {
+            const newIndex = direction === 'up' ? index - 1 : index + 1;
+            if (newIndex < 0 || newIndex >= currentAttributes.length) return;
+
+            const temp = currentAttributes[index];
+            currentAttributes[index] = currentAttributes[newIndex];
+            currentAttributes[newIndex] = temp;
+
+            renderAttributesOptions();
+            const payload = currentAttributes.map((item, idx) => ({ id: item.id, sort_order: idx + 1 }));
+
+            try {
+                await fetch('/api/equipment-attributes/reorder', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items: payload })
+                });
+                updateAllDetailDropdowns();
+            } catch (err) { 
+                await loadAttributes(); 
+            }
+        }
+
+        async function editAttribute(id, currentName) {
+            const name = prompt('แก้ไขชื่อหัวข้อ:', currentName);
+            if (!name || name.trim() === currentName) return;
+            try {
+                const res = await fetch(`/api/equipment-attributes/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name.trim() })
+                });
+                if (res.ok) {
+                    await loadAttributes();
+                    updateAllDetailDropdowns();
+                }
+            } catch (err) { alert('เกิดข้อผิดพลาด'); }
+        }
+
+        async function deleteAttribute(id) {
+            if (!confirm('ยืนยันการลบหัวข้อนี้?')) return;
+            try {
+                const res = await fetch(`/api/equipment-attributes/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    await loadAttributes();
+                    updateAllDetailDropdowns();
+                }
+            } catch (err) { alert('เกิดข้อผิดพลาด'); }
+        }
+
+        function openManageModal(type) {
+            const storedRole = (localStorage.getItem('user_role') || '').toLowerCase();
+            
+            if (storedRole === 'staff' && type === 'department') {
+                alert('คุณไม่มีสิทธิ์จัดการข้อมูลสังกัด');
+                return;
+            }
+
+            currentManageType = type;
+            const titleEl = document.getElementById('master-modal-title');
+            const deptContainer = document.getElementById('master-dept-select-container');
+            const inputEl = document.getElementById('new-master-name');
+            inputEl.value = '';
+
+            if (type === 'category') {
+                titleEl.innerHTML = '⚙️ จัดการหมวดหมู่ครุภัณฑ์';
+                deptContainer.style.display = 'none';
+            } else if (type === 'department') {
+                titleEl.innerHTML = '⚙️ จัดการสังกัด';
+                deptContainer.style.display = 'none';
+            } else if (type === 'organization') {
+                titleEl.innerHTML = '⚙️ จัดการหน่วยงาน (เฉพาะสังกัดของคุณ)';
+                deptContainer.style.display = 'block';
+                
+                let deptOpts = '';
+                const userDeptId = localStorage.getItem('user_dept_id');
+
+                if (storedRole === 'staff') {
+                    const foundDept = departmentOptions.find(d => String(d.id) === String(userDeptId));
+                    if (foundDept) {
+                        deptOpts = `<option value="${foundDept.id}">${escapeHtml(foundDept.name)}</option>`;
+                    } else {
+                        deptOpts = `<option value="${userDeptId}">สังกัดของฉัน</option>`;
+                    }
+                    const deptSelectModal = document.getElementById('master-modal-dept-id');
+                    deptSelectModal.innerHTML = deptOpts;
+                    deptSelectModal.disabled = true;
+                } else {
+                    deptOpts = '<option value="">-- เลือกสังกัด --</option>';
+                    departmentOptions.forEach(d => {
+                        deptOpts += `<option value="${d.id}">${escapeHtml(d.name)}</option>`;
+                    });
+                    const deptSelectModal = document.getElementById('master-modal-dept-id');
+                    deptSelectModal.innerHTML = deptOpts;
+                    deptSelectModal.disabled = false;
+                    
+                    const currentEditDept = document.getElementById('edit-department').value;
+                    if (currentEditDept) {
+                        deptSelectModal.value = currentEditDept;
+                    }
+                }
+            }
+
+            renderMasterItemsList();
+            const modal = new bootstrap.Modal(document.getElementById('manageMasterModal'));
+            modal.show();
+        }
+
+        function renderMasterItemsList() {
+            let items = [];
+            let listHtml = '';
+            const storedRole = (localStorage.getItem('user_role') || '').toLowerCase();
+            const userDeptId = localStorage.getItem('user_dept_id');
+
+            if (currentManageType === 'category') {
+                items = categoryOptions;
+            } else if (currentManageType === 'department') {
+                items = departmentOptions;
+            } else if (currentManageType === 'organization') {
+                if (storedRole === 'staff') {
+                    items = organizationOptions.filter(o => String(o.department_id || o.dept_id) === String(userDeptId));
+                } else {
+                    items = organizationOptions;
+                }
+            }
+
+            if (Array.isArray(items) && items.length > 0) {
+                items.forEach((item) => {
+                    const itemName = item.name || item.organization_name || '';
+                    const deptInfo = (currentManageType === 'organization') ? ` <small class="text-muted">(${getDeptName(item.department_id || item.dept_id)})</small>` : '';
+                    listHtml += `
+                        <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+                            <span>${escapeHtml(itemName)}${deptInfo}</span>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-warning btn-sm" style="font-size: 0.7rem;" onclick="editMasterItem(${item.id}, '${escapeHtml(itemName)}', '${item.department_id || item.dept_id || ''}')"><i class="fa-solid fa-pen-to-square"></i></button>
+                                <button class="btn btn-outline-danger btn-sm" style="font-size: 0.7rem;" onclick="deleteMasterItem(${item.id})"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </li>`;
+                });
+            } else {
+                listHtml = '<li class="list-group-item text-center text-muted py-3">ยังไม่มีข้อมูล</li>';
+            }
+
+            document.getElementById('master-item-list').innerHTML = listHtml;
+        }
+
+        function getDeptName(deptId) {
+            const found = departmentOptions.find(d => String(d.id) === String(deptId));
+            return found ? found.name : 'ไม่ระบุสังกัด';
+        }
+
+        async function addMasterItem() {
+            const nameInput = document.getElementById('new-master-name');
+            const name = nameInput.value.trim();
+            if (!name) return alert('กรุณากรอกชื่อรายการ');
+
+            let endpoint = '';
+            let payload = { name };
+            const storedRole = (localStorage.getItem('user_role') || '').toLowerCase();
+            const userDeptId = localStorage.getItem('user_dept_id');
+
+            if (currentManageType === 'category') {
+                endpoint = '/api/categories';
+            } else if (currentManageType === 'department') {
+                if (storedRole === 'staff') return alert('คุณไม่มีสิทธิ์เพิ่มสังกัด');
+                endpoint = '/api/departments';
+            } else if (currentManageType === 'organization') {
+                endpoint = '/api/organizations';
+                let deptId = document.getElementById('master-modal-dept-id').value;
+                if (storedRole === 'staff') {
+                    deptId = userDeptId;
+                }
+                if (!deptId) return alert('กรุณาเลือกสังกัดสำหรับหน่วยงานนี้');
+                payload = { name, department_id: deptId };
+            }
+
+            try {
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    nameInput.value = '';
+                    await loadOptions();
+                    renderMasterItemsList();
+                    if (currentManageType === 'organization') {
+                        onDepartmentChange(document.getElementById('edit-organization').value);
+                    }
+                } else {
+                    const err = await res.json().catch(() => ({}));
+                    alert(err.message || 'ไม่สามารถเพิ่มข้อมูลได้');
+                }
+            } catch (err) {
+                alert('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+            }
+        }
+
+        async function editMasterItem(id, currentName, currentDeptId) {
+            const storedRole = (localStorage.getItem('user_role') || '').toLowerCase();
+            const userDeptId = localStorage.getItem('user_dept_id');
+
+            if (storedRole === 'staff' && currentManageType === 'department') {
+                alert('คุณไม่มีสิทธิ์แก้ไขข้อมูลสังกัด');
+                return;
+            }
+            if (storedRole === 'staff' && currentManageType === 'organization' && String(currentDeptId) !== String(userDeptId)) {
+                alert('คุณสามารถแก้ไขได้เฉพาะหน่วยงานในสังกัดของตนเองเท่านั้น');
+                return;
+            }
+
+            const newName = prompt('แก้ไขชื่อ:', currentName);
+            if (!newName || newName.trim() === currentName) return;
+
+            let endpoint = '';
+            let payload = { name: newName.trim() };
+
+            if (currentManageType === 'category') {
+                endpoint = `/api/categories/${id}`;
+            } else if (currentManageType === 'department') {
+                endpoint = `/api/departments/${id}`;
+            } else if (currentManageType === 'organization') {
+                endpoint = `/api/organizations/${id}`;
+                payload = { name: newName.trim(), department_id: currentDeptId };
+            }
+
+            try {
+                const res = await fetch(endpoint, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    await loadOptions();
+                    renderMasterItemsList();
+                    if (currentManageType === 'organization') {
+                        onDepartmentChange(document.getElementById('edit-organization').value);
+                    }
+                } else {
+                    alert('ไม่สามารถแก้ไขข้อมูลได้');
+                }
+            } catch (err) {
+                alert('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+            }
+        }
+
+        async function deleteMasterItem(id) {
+            const storedRole = (localStorage.getItem('user_role') || '').toLowerCase();
+            if (storedRole === 'staff' && currentManageType === 'department') {
+                alert('คุณไม่มีสิทธิ์ลบข้อมูลสังกัด');
+                return;
+            }
+
+            if (!confirm('ยืนยันการลบรายการนี้?')) return;
+
+            let endpoint = '';
+            if (currentManageType === 'category') {
+                endpoint = `/api/categories/${id}`;
+            } else if (currentManageType === 'department') {
+                endpoint = `/api/departments/${id}`;
+            } else if (currentManageType === 'organization') {
+                endpoint = `/api/organizations/${id}`;
+            }
+
+            try {
+                const res = await fetch(endpoint, { method: 'DELETE' });
+                if (res.ok) {
+                    await loadOptions();
+                    renderMasterItemsList();
+                    if (currentManageType === 'organization') {
+                        onDepartmentChange(document.getElementById('edit-organization').value);
+                    }
+                } else {
+                    alert('ไม่สามารถลบข้อมูลได้ (อาจมีข้อมูลอ้างอิงอยู่)');
+                }
+            } catch (err) {
+                alert('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+            }
+        }
+
+        function updateAllDetailDropdowns() {
+            document.querySelectorAll('.detail-preset-select').forEach(select => {
+                const currentVal = select.value;
+                let options = '<option value="">-- พิมพ์เอง หรือ เลือกหัวข้อ --</option>';
+                if (Array.isArray(currentAttributes)) {
+                    currentAttributes.forEach(attr => {
+                        const selected = attr.name === currentVal ? 'selected' : '';
+                        options += `<option value="${escapeHtml(attr.name)}" ${selected}>${escapeHtml(attr.name)}</option>`;
+                    });
+                }
+                select.innerHTML = options;
+            });
+        }
+
+        function addDetailRow(title = '', value = '') {
+            const container = document.getElementById('detail-list-container');
+            const rowId = 'detail-row-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4);
+
+            let options = '<option value="">-- พิมพ์เอง หรือ เลือกหัวข้อ --</option>';
+            if (Array.isArray(currentAttributes)) {
+                currentAttributes.forEach(attr => {
+                    const selected = attr.name === title ? 'selected' : '';
+                    options += `<option value="${escapeHtml(attr.name)}" ${selected}>${escapeHtml(attr.name)}</option>`;
+                });
+            }
+
+            const rowHtml = `
+                <div class="row g-2 mb-2 align-items-center detail-item-row" id="${rowId}">
+                    <div class="col-5">
+                        <div class="input-group input-group-sm">
+                            <input type="text" class="form-control form-control-sm detail-title" placeholder="พิมพ์ชื่อหัวข้อ..." value="${escapeHtml(title)}">
+                            <select class="form-select form-select-sm text-secondary detail-preset-select" style="max-width: 110px;" onchange="selectPresetTitle(this)">
+                                ${options}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <input type="text" class="form-control form-control-sm detail-value" placeholder="รายละเอียด/สเปก" value="${escapeHtml(value)}">
+                    </div>
+                    <div class="col-1 text-end">
+                        <button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center justify-content-center p-0 shadow-sm" style="width: 28px; height: 28px;" onclick="removeDetailRow('${rowId}')">
+                            <i class="fa-solid fa-xmark text-white"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', rowHtml);
+        }
+
+        function selectPresetTitle(selectEl) {
+            if (selectEl.value) {
+                const input = selectEl.closest('.input-group').querySelector('.detail-title');
+                input.value = selectEl.value;
+            }
+        }
+
+        function removeDetailRow(rowId) {
+            const row = document.getElementById(rowId);
+            if (row) row.remove();
+        }
+
+        function getDetailListData() {
+            const rows = document.querySelectorAll('.detail-item-row');
+            const details = [];
+            rows.forEach(row => {
+                const title = row.querySelector('.detail-title').value.trim();
+                const value = row.querySelector('.detail-value').value.trim();
+                if (title || value) details.push({ title, value });
+            });
+            return details;
+        }
+
+        function clearDetailList() {
+            document.getElementById('detail-list-container').innerHTML = '';
+        }
+
+        function populateDetailList(details) {
+            clearDetailList();
+            if (typeof details === 'string') {
+                try { details = JSON.parse(details); } catch (e) { details = []; }
+            }
+            if (Array.isArray(details) && details.length > 0) {
+                details.forEach(item => {
+                    const titleVal = item.title || item.label || item.name || '';
+                    const valueVal = item.value || '';
+                    addDetailRow(titleVal, valueVal);
+                });
+            } else {
+                addDetailRow();
+            }
+        }
+
+        async function loadActiveAuditRounds() {
+            const auditSection = document.getElementById('admin-audit-section');
+            const titleBox = document.getElementById('audit-title-box');
+
+            try {
+                const res = await fetch('/api/audit-rounds');
+                if (res.ok) {
+                    const data = await res.json();
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+
+                    const availableRounds = data.filter(r => {
+                        if (r.status === 'CLOSED') return false;
+                        if (r.start_date) {
+                            const startDate = new Date(r.start_date);
+                            startDate.setHours(0, 0, 0, 0);
+                            if (today < startDate) return false;
+                        }
+                        if (r.end_date) {
+                            const endDate = new Date(r.end_date);
+                            endDate.setHours(23, 59, 59, 999);
+                            if (today > endDate) return false;
+                        }
+                        return true;
+                    });
+
+                    if (availableRounds.length > 0) {
+                        activeAuditRound = availableRounds[0];
+                        titleBox.innerHTML = `หัวข้อการสำรวจ: <span class="text-primary fs-6">${escapeHtml(activeAuditRound.title)}</span>`;
+                        checkUserRole();
+                        checkAuditStatus();
+                    } else {
+                        activeAuditRound = null;
+                        auditSection.style.display = 'none';
+                    }
+                }
+            } catch (err) {
+                activeAuditRound = null;
+                auditSection.style.display = 'none';
+            }
+        }
+
+        async function checkAuditStatus() {
+            const btn = document.getElementById('btn-submit-audit');
+            if (!activeAuditRound || !currentEquipment) {
+                btn.disabled = true;
+                return;
+            }
+
+            const storedRole = (localStorage.getItem('user_role') || '').toLowerCase();
+            const storedDeptId = localStorage.getItem('user_dept_id');
+            const eqDeptId = currentEquipment.department_id || (currentEquipment.department ? currentEquipment.department.id : null);
+
+            if (storedRole === 'staff' && String(storedDeptId) !== String(eqDeptId)) {
+                setAuditButtonPermissionDenied();
+                return;
+            }
+
+            const targetIdentifier = currentEquipment.id || getEquipmentParam();
+            try {
+                const res = await fetch(`/api/audit/check?equipment_id=${encodeURIComponent(targetIdentifier)}&round_id=${activeAuditRound.id}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.audited) {
+                        setAuditButtonCompleted(data.audited_at || data.created_at);
+                    } else {
+                        setAuditButtonReady();
+                    }
+                } else {
+                    setAuditButtonReady();
+                }
+            } catch (err) {
+                setAuditButtonReady();
+            }
+        }
+
+        function setAuditButtonCompleted(auditDateStr = null) {
+            const titleBox = document.getElementById('audit-title-box');
+            const btn = document.getElementById('btn-submit-audit');
+            const dateObj = auditDateStr ? new Date(auditDateStr) : new Date();
+            const formattedDate = dateObj.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' น.';
+
+            titleBox.innerHTML = `
+                <div class="alert alert-success d-flex align-items-center mb-0 p-3 shadow-sm border-0 rounded-3">
+                    <i class="fa-solid fa-circle-check fs-3 me-3 text-success"></i>
+                    <div>
+                        <div class="fw-bold text-success fs-6 mb-1">สำรวจเรียบร้อยแล้ว</div>
+                        <div class="text-dark small">
+                            <strong>หัวข้อ:</strong> ${escapeHtml(activeAuditRound ? activeAuditRound.title : '')}<br>
+                            <span class="text-muted"><i class="fa-regular fa-clock me-1"></i>เมื่อ ${formattedDate}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            btn.style.display = 'block';
+            btn.disabled = true;
+            btn.className = "btn btn-secondary btn-lg w-100 shadow-sm py-3 fs-5 fw-bold";
+            btn.innerHTML = `<i class="fa-solid fa-circle-check me-2"></i> สำรวจเรียบร้อยแล้ว`;
+        }
+
+        function setAuditButtonReady() {
+            const btn = document.getElementById('btn-submit-audit');
+            const titleBox = document.getElementById('audit-title-box');
+            if (activeAuditRound) {
+                titleBox.innerHTML = `หัวข้อการสำรวจ: <span class="text-primary fs-6">${escapeHtml(activeAuditRound.title)}</span>`;
+            }
+            btn.style.display = 'block';
+            btn.disabled = false;
+            btn.className = "btn btn-success btn-lg w-100 shadow py-3 fs-5 fw-bold";
+            btn.innerHTML = `<i class="fa-solid fa-circle-check me-2"></i> ยืนยันการสำรวจ`;
+        }
+
+        function setAuditButtonPermissionDenied() {
+            const btn = document.getElementById('btn-submit-audit');
+            const titleBox = document.getElementById('audit-title-box');
+            if (activeAuditRound) {
+                titleBox.innerHTML = `หัวข้อการสำรวจ: <span class="text-primary fs-6">${escapeHtml(activeAuditRound.title)}</span>`;
+            }
+            btn.style.display = 'block';
+            btn.disabled = true;
+            btn.className = "btn btn-secondary btn-lg w-100 shadow py-3 fs-6 fw-bold";
+            btn.innerHTML = `<i class="fa-solid fa-lock me-2"></i> สำรวจได้เฉพาะอุปกรณ์ในสังกัดตนเอง`;
+        }
+
+        function renderDropdownOptions() {
+            let catHtml = '<option value="">-- เลือกหมวดหมู่ --</option>';
+            categoryOptions.forEach(c => { catHtml += `<option value="${c.id}">${escapeHtml(c.name)}</option>`; });
+            document.getElementById('edit-category').innerHTML = catHtml;
+
+            let deptHtml = '<option value="">-- เลือกสังกัด --</option>';
+            departmentOptions.forEach(d => { deptHtml += `<option value="${d.id}">${escapeHtml(d.name)}</option>`; });
+            document.getElementById('edit-department').innerHTML = deptHtml;
+        }
+
+        function onDepartmentChange(selectedOrgValue = '') {
+            const deptId = document.getElementById('edit-department').value;
+            const orgSelect = document.getElementById('edit-organization');
+            
+            let orgHtml = '<option value="">-- เลือกหน่วยงาน --</option>';
+            
+            const filteredOrgs = organizationOptions.filter(o => {
+                const oDeptId = o.department_id || o.dept_id;
+                return !deptId || String(oDeptId) === String(deptId);
+            });
+
+            if (filteredOrgs.length > 0) {
+                filteredOrgs.forEach(o => {
+                    const orgName = o.name || o.organization_name;
+                    const isSelected = (orgName === selectedOrgValue || String(o.id) === String(selectedOrgValue)) ? 'selected' : '';
+                    orgHtml += `<option value="${escapeHtml(orgName)}" ${isSelected}>${escapeHtml(orgName)}</option>`;
+                });
+            } else if (selectedOrgValue) {
+                orgHtml += `<option value="${escapeHtml(selectedOrgValue)}" selected>${escapeHtml(selectedOrgValue)}</option>`;
+            }
+            
+            orgSelect.innerHTML = orgHtml;
+        }
+
+        async function loadEquipmentDetail() {
+            const eqCode = getEquipmentParam();
+            try {
+                let res = await fetch(`/api/equipments/${encodeURIComponent(eqCode)}`);
+                if (res.ok) {
+                    currentEquipment = await res.json();
+                } else {
+                    const searchRes = await fetch(`/api/equipments?code=${encodeURIComponent(eqCode)}`);
+                    if (searchRes.ok) {
+                        const data = await searchRes.json();
+                        currentEquipment = Array.isArray(data) ? data[0] : data;
+                    }
+                }
+
+                if (currentEquipment && (currentEquipment.id || currentEquipment.computer_name || currentEquipment.code)) {
+                    renderViewMode();
+                    document.getElementById('eq-loading').style.display = 'none';
+                    document.getElementById('view-mode-card').style.display = 'block';
+                    checkUserRole();
+                    checkAuditStatus();
+                } else {
+                    throw new Error('Equipment not found');
+                }
+            } catch (err) {
+                document.getElementById('eq-info-container').innerHTML = `
+                    <div class="alert alert-warning text-center m-0">
+                        <i class="fa-solid fa-circle-exclamation me-1"></i> ไม่พบข้อมูลอุปกรณ์รหัส <strong>${escapeHtml(eqCode)}</strong> ในระบบ
+                    </div>`;
+                document.getElementById('btn-toggle-edit').style.display = 'none';
+            }
+        }
+
+        function renderViewMode() {
+            const eq = currentEquipment;
+            
+            let catName = eq.category_name || (eq.category ? eq.category.name : '');
+            if (!catName && eq.category_id) {
+                const foundCat = categoryOptions.find(c => String(c.id) === String(eq.category_id));
+                if (foundCat) catName = foundCat.name;
+            }
+
+            let deptName = eq.department_name || (eq.department ? eq.department.name : '');
+            if (!deptName && eq.department_id) {
+                const foundDept = departmentOptions.find(d => String(d.id) === String(eq.department_id));
+                if (foundDept) deptName = foundDept.name;
+            }
+
+            document.getElementById('v-computer-name').textContent = eq.computer_name || eq.code || '-';
+            document.getElementById('v-user-name').textContent = eq.user_name || '-';
+            document.getElementById('v-position').textContent = eq.position || '-';
+            document.getElementById('v-phone').textContent = eq.phone || '-';
+            document.getElementById('v-category').textContent = catName || 'ไม่ระบุ';
+            document.getElementById('v-department').textContent = deptName || 'ไม่ระบุ';
+            document.getElementById('v-organization').textContent = eq.organization_name || (eq.organization ? eq.organization.name : '-');
+            document.getElementById('v-status-badge').innerHTML = getStatusBadge(eq.status);
+
+            const btnSubmit = document.getElementById('btn-submit-repair');
+            const msgDisabled = document.getElementById('repair-disabled-msg');
+            const formContainer = document.getElementById('repair-form-container');
+
+            if (eq.status === 'ส่งซ่อม' || eq.status === 'แจ้งซ่อม' || eq.status === 'กำลังซ่อม') {
+                if (btnSubmit) btnSubmit.disabled = true;
+                if (formContainer) formContainer.style.display = 'none';
+                if (msgDisabled) msgDisabled.style.display = 'block';
+            } else {
+                if (btnSubmit) btnSubmit.disabled = false;
+                if (formContainer) formContainer.style.display = 'block';
+                if (msgDisabled) msgDisabled.style.display = 'none';
+            }
+        }
+
+        function toggleEditMode(forceState) {
+            isEditMode = typeof forceState === 'boolean' ? forceState : !isEditMode;
+            
+            const btnToggle = document.getElementById('btn-toggle-edit');
+            const viewCard = document.getElementById('view-mode-card');
+            const editCard = document.getElementById('edit-mode-card');
+
+            if (isEditMode) {
+                populateEditForm();
+                applyPermissionRules();
+                viewCard.style.display = 'none';
+                editCard.style.display = 'block';
+                btnToggle.className = "btn btn-sm btn-secondary staff-or-admin";
+                btnToggle.innerHTML = '<i class="fa-solid fa-xmark me-1"></i> ยกเลิกแก้ไข';
+            } else {
+                editCard.style.display = 'none';
+                viewCard.style.display = 'block';
+                btnToggle.className = "btn btn-sm btn-outline-warning staff-or-admin";
+                btnToggle.innerHTML = '<i class="fa-solid fa-pen-to-square me-1"></i> แก้ไขข้อมูล';
+            }
+        }
+
+        function populateEditForm() {
+            const eq = currentEquipment;
+            document.getElementById('edit-computer-name').value = eq.computer_name || eq.code || '';
+            document.getElementById('edit-user-name').value = eq.user_name || '';
+            document.getElementById('edit-position').value = eq.position || '';
+            document.getElementById('edit-phone').value = eq.phone || '';
+            document.getElementById('edit-email').value = eq.email || '';
+            document.getElementById('edit-category').value = eq.category_id || (eq.category ? eq.category.id : '');
+            
+            const deptSelect = document.getElementById('edit-department');
+            deptSelect.value = eq.department_id || (eq.department ? eq.department.id : '');
+
+            onDepartmentChange(eq.organization_name || (eq.organization ? eq.organization.name : ''));
+
+            document.getElementById('edit-status').value = eq.status || 'ใช้งานปกติ';
+            populateDetailList(eq.details || eq.spec || eq.remarks);
+        }
+
+        function applyPermissionRules() {
+            const storedRole = (localStorage.getItem('user_role') || '').toLowerCase();
+            const deptSelect = document.getElementById('edit-department');
+            const catSelect = document.getElementById('edit-category');
+            
+            if (catSelect) catSelect.disabled = false;
+            
+            if (storedRole === 'staff') {
+                if (deptSelect) deptSelect.disabled = true;
+            } else {
+                if (deptSelect) deptSelect.disabled = false;
+            }
+        }
+
+        async function saveEquipmentDetail() {
+            if (!currentEquipment) return;
+
+            const computerName = document.getElementById('edit-computer-name').value.trim();
+            if (!computerName) return alert('กรุณากรอกชื่อเครื่อง');
+
+            const payload = {
+                computer_name: computerName,
+                user_name: document.getElementById('edit-user-name').value.trim(),
+                position: document.getElementById('edit-position').value.trim(),
+                phone: document.getElementById('edit-phone').value.trim(),
+                email: document.getElementById('edit-email').value.trim(),
+                category_id: document.getElementById('edit-category').value,
+                department_id: document.getElementById('edit-department').value,
+                organization_name: document.getElementById('edit-organization').value,
+                status: document.getElementById('edit-status').value,
+                details: getDetailListData()
+            };
+
+            const targetIdentifier = currentEquipment.id || getEquipmentParam();
+
+            try {
+                const res = await fetch(`/api/equipments/${encodeURIComponent(targetIdentifier)}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    alert('บันทึกข้อมูลครุภัณฑ์เรียบร้อยแล้ว');
+                    
+                    const currentCodeParam = getEquipmentParam();
+                    if (computerName !== currentCodeParam) {
+                        const url = new URL(window.location.href);
+                        if (url.searchParams.has('code')) {
+                            url.searchParams.set('code', computerName);
+                        } else {
+                            url.searchParams.set('id', computerName);
+                        }
+                        window.history.replaceState({}, '', url);
+                    }
+
+                    await loadEquipmentDetail();
+                    toggleEditMode(false);
+                } else {
+                    const err = await res.json().catch(() => ({ message: 'ไม่สามารถระบุสาเหตุได้' }));
+                    alert('เกิดข้อผิดพลาดจากเซิร์ฟเวอร์: ' + (err.message || res.statusText));
+                }
+            } catch (err) {
+                console.error('Save error:', err);
+                alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
+            }
+        }
+
+        async function submitAudit() {
+            if (!activeAuditRound) return alert('ไม่มีหัวข้อการสำรวจที่เปิดใช้งานในขณะนี้');
+            const targetIdentifier = currentEquipment?.id || getEquipmentParam();
+            if (!targetIdentifier) return alert('ไม่พบรหัสครุภัณฑ์');
+
+            try {
+                const res = await fetch(`/api/audit/${encodeURIComponent(targetIdentifier)}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ round_id: activeAuditRound.id })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    setAuditButtonCompleted(data.created_at || new Date());
+                    loadEquipmentDetail();
+                } else {
+                    alert(data.message || 'เกิดข้อผิดพลาดในการสำรวจ');
+                }
+            } catch (err) {
+                alert('เกิดข้อผิดพลาดในการสำรวจ');
+            }
+        }
+
+        async function submitRepair() {
+            const targetIdentifier = currentEquipment?.id || getEquipmentParam();
+            if (!targetIdentifier) return alert('ไม่พบรหัสครุภัณฑ์');
+
+            const reporter = document.getElementById('reporter').value.trim();
+            const symptom = document.getElementById('symptom').value.trim();
+
+            if (!reporter || !symptom) return alert('กรุณากรอกข้อมูลผู้แจ้งและอาการเสียให้ครบถ้วน');
+
+            try {
+                const body = {
+                    equipment_id: targetIdentifier,
+                    reporter_name: reporter,
+                    symptom: symptom
+                };
+                const res = await fetch('/api/repairs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                alert(data.message || 'ส่งเรื่องแจ้งซ่อมเรียบร้อย');
+                if (res.ok) {
+                    document.getElementById('reporter').value = '';
+                    document.getElementById('symptom').value = '';
+                    loadEquipmentDetail();
+                }
+            } catch (err) {
+                alert('เกิดข้อผิดพลาดในการส่งเรื่องแจ้งซ่อม');
+            }
+        }
+
+        function getStatusBadge(status) {
+            switch (status) {
+                case 'ใช้งานปกติ': 
+                case 'ปกติ': 
+                    return `<span class="badge bg-success">${status}</span>`;
+                case 'ส่งซ่อม': 
+                case 'แจ้งซ่อม': 
+                case 'กำลังซ่อม': 
+                    return `<span class="badge bg-warning text-dark">${status}</span>`;
+                case 'จำหน่าย': 
+                    return `<span class="badge bg-danger">${status}</span>`;
+                default: 
+                    return `<span class="badge bg-secondary">${status || 'ไม่ระบุ'}</span>`;
+            }
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return String(text)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>

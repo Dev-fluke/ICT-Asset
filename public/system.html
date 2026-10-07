@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>การตั้งค่าระบบ - ระบบบริหารจัดการครุภัณฑ์</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font: Prompt -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Main Style -->
+    <link rel="stylesheet" href="/styles.css">
+    <!-- 🔒 Auth Guard & Global App -->
+    <script src="../auth-guard.js"></script>
+    <script src="../global-app.js"></script>
+
+    <style>
+        .settings-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            background: #ffffff;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .settings-card:hover {
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.06);
+        }
+        .settings-header-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app-container">
+        <!-- Sidebar Layout -->
+        <div id="sidebar-placeholder"></div>
+        <script>if (window.renderCachedSidebar) renderCachedSidebar();</script>
+
+        <!-- Main Content -->
+        <div class="main-content flex-grow-1 p-4">
+            <div id="header-placeholder"></div>
+
+            <!-- Header Section -->
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+                <div>
+                    <h4 class="fw-bold m-0 text-primary">
+                        <i class="fa-solid fa-sliders me-2"></i>การตั้งค่าระบบ (System Settings)
+                    </h4>
+                    <p class="text-muted small mb-0 mt-1">
+                        กำหนดค่าการทำงานความปลอดภัย และการเปิด-ปิดการเข้าถึงระบบแจ้งซ่อมภายนอก
+                    </p>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-primary px-4 py-2 fw-semibold shadow-sm" onclick="saveSystemSettings()" id="btn-save-settings">
+                        <i class="fa-solid fa-floppy-disk me-1"></i> บันทึกการเปลี่ยนแปลง
+                    </button>
+                </div>
+            </div>
+
+            <!-- Settings Grid -->
+            <div class="row g-4">
+                
+                <!-- 1. การจัดการความปลอดภัยและเซสชัน (Auto-Logout) -->
+                <div class="col-lg-6">
+                    <div class="settings-card p-4 h-100">
+                        <div class="d-flex align-items-center gap-3 mb-3 pb-3 border-bottom">
+                            <div class="settings-header-icon bg-warning-subtle text-warning">
+                                <i class="fa-solid fa-clock-rotate-left"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold m-0 text-dark">ความปลอดภัยและเซสชันผู้ใช้งาน</h6>
+                                <small class="text-muted">ระบบออกจากระบบอัตโนมัติเมื่อไม่มีการใช้งาน (Session Inactivity)</small>
+                            </div>
+                        </div>
+
+                        <div class="form-check form-switch mb-3 ps-5">
+                            <input class="form-check-input fs-5" type="checkbox" role="switch" id="setting-auto-logout" onchange="toggleAutoLogoutInput()">
+                            <label class="form-check-label fw-bold ms-1" for="setting-auto-logout">
+                                เปิดใช้งานออกจากระบบอัตโนมัติ (Auto-Logout)
+                            </label>
+                            <div class="text-muted small mt-1">
+                                เมื่อผู้ใช้งานเปิดหน้าเว็บทิ้งไว้และไม่มีการคลิก เลื่อน หรือกดแป้นพิมพ์ ระบบจะนับถอยหลังและออกจากระบบให้อัตโนมัติ
+                            </div>
+                        </div>
+
+                        <div class="mb-3" id="auto-logout-minutes-container">
+                            <label class="form-label small fw-bold text-secondary">
+                                <i class="fa-solid fa-hourglass-half me-1"></i> ระยะเวลาที่ไม่มีการเคลื่อนไหว (Inactivity Timeout)
+                            </label>
+                            <select id="setting-auto-logout-minutes" class="form-select">
+                                <option value="5">5 นาที (ความปลอดภัยสูงสุด)</option>
+                                <option value="10">10 นาที</option>
+                                <option value="15" selected>15 นาที (แนะนำ)</option>
+                                <option value="30">30 นาที</option>
+                                <option value="60">60 นาที (1 ชั่วโมง)</option>
+                            </select>
+                            <small class="text-muted mt-1 d-block">
+                                * ระบบจะแสดงข้อความเตือนนับถอยหลัง 60 วินาทีก่อนจะออกจากระบบ
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. การเข้าถึงระบบแจ้งซ่อมสำหรับผู้ใช้งานทั่วไป (Public Repair Portal) -->
+                <div class="col-lg-6">
+                    <div class="settings-card p-4 h-100">
+                        <div class="d-flex align-items-center gap-3 mb-3 pb-3 border-bottom">
+                            <div class="settings-header-icon bg-danger-subtle text-danger">
+                                <i class="fa-solid fa-wrench"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold m-0 text-dark">การเข้าถึงระบบแจ้งซ่อมภายนอก</h6>
+                                <small class="text-muted">ควบคุมการเปิด-ปิดหน้าแจ้งซ่อมสำหรับผู้ใช้งานทั่วไป (repair.html)</small>
+                            </div>
+                        </div>
+
+                        <div class="form-check form-switch mb-3 ps-5">
+                            <input class="form-check-input fs-5" type="checkbox" role="switch" id="setting-repair-portal" onchange="toggleRepairMessageInput()">
+                            <label class="form-check-label fw-bold ms-1" for="setting-repair-portal">
+                                เปิดรับเรื่องแจ้งซ่อมจากผู้ใช้งาน (User Repair Portal)
+                            </label>
+                            <div class="text-muted small mt-1">
+                                หากปิดใช้งาน ส่วน <strong>"สำหรับผู้ใช้งาน (User) / แจ้งซ่อมอุปกรณ์"</strong> ในหน้า repair.html จะถูกซ่อนอัตโนมัติ
+                            </div>
+                        </div>
+
+                        <div class="mb-3" id="repair-message-container">
+                            <label class="form-label small fw-bold text-secondary">
+                                <i class="fa-solid fa-comment-dots me-1"></i> ข้อความแจ้งเตือนเมื่อปิดรับแจ้งซ่อม
+                            </label>
+                            <textarea id="setting-repair-message" class="form-control" rows="3" placeholder="ระบุข้อความแจ้งเตือนสำหรับผู้ใช้งาน..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Alert Container -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 11000;">
+        <div id="settingsToast" class="toast align-items-center text-white bg-success border-0 shadow-lg" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body d-flex align-items-center gap-2" id="toast-message">
+                    <i class="fa-solid fa-circle-check fs-5"></i> บันทึกการตั้งค่าระบบเรียบร้อยแล้ว
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let toastInstance = null;
+
+        window.onload = async function() {
+            toastInstance = new bootstrap.Toast(document.getElementById('settingsToast'));
+
+            // ตรวจสอบสิทธิ์ Admin (เฉพาะ Admin เท่านั้นที่เข้าถึงหน้านี้ได้)
+            checkAdminAccess();
+
+            await loadLayout();
+            await loadSystemSettings();
+        };
+
+        function checkAdminAccess() {
+            try {
+                const rawUser = localStorage.getItem('user') || localStorage.getItem('user_session') || sessionStorage.getItem('user');
+                const user = rawUser ? JSON.parse(rawUser) : null;
+                const role = String(user?.role || '').toLowerCase().trim();
+                if (role !== 'admin') {
+                    alert('คุณไม่มีสิทธิ์เข้าถึงหน้านี้ (เฉพาะ Admin เท่านั้น)');
+                    window.location.href = 'dashboard.html';
+                }
+            } catch (e) {
+                window.location.href = 'index.html';
+            }
+        }
+
+        async function loadLayout() {
+            try {
+                if (typeof initSidebar === 'function') {
+                    await initSidebar('system.html');
+                }
+            } catch (e) {
+                console.warn('loadLayout error:', e);
+            }
+        }
+
+        async function loadSystemSettings() {
+            try {
+                const res = await fetch('/api/system/settings');
+                if (res.ok) {
+                    const data = await res.json();
+                    const s = data.settings || {};
+
+                    // 1. Auto Logout
+                    const autoLogoutEl = document.getElementById('setting-auto-logout');
+                    const autoMinutesEl = document.getElementById('setting-auto-logout-minutes');
+                    if (autoLogoutEl) autoLogoutEl.checked = s.auto_logout_enabled !== false && String(s.auto_logout_enabled) !== 'false';
+                    if (autoMinutesEl) autoMinutesEl.value = String(s.auto_logout_minutes || 15);
+                    toggleAutoLogoutInput();
+
+                    // 2. Repair Portal
+                    const repairPortalEl = document.getElementById('setting-repair-portal');
+                    const repairMsgEl = document.getElementById('setting-repair-message');
+                    if (repairPortalEl) repairPortalEl.checked = s.repair_portal_enabled !== false && String(s.repair_portal_enabled) !== 'false';
+                    if (repairMsgEl) repairMsgEl.value = s.repair_portal_message || '';
+                    toggleRepairMessageInput();
+                }
+            } catch (e) {
+                console.error('loadSystemSettings error:', e);
+            }
+        }
+
+        function toggleAutoLogoutInput() {
+            const isChecked = document.getElementById('setting-auto-logout').checked;
+            const container = document.getElementById('auto-logout-minutes-container');
+            if (container) {
+                container.style.opacity = isChecked ? '1' : '0.4';
+                container.querySelector('select').disabled = !isChecked;
+            }
+        }
+
+        function toggleRepairMessageInput() {
+            const isChecked = document.getElementById('setting-repair-portal').checked;
+            const container = document.getElementById('repair-message-container');
+            if (container) {
+                // เมื่อปิดการรับแจ้งซ่อม ให้แสดงช่องข้อความเตือนชัดเจน
+                container.style.opacity = !isChecked ? '1' : '0.6';
+            }
+        }
+
+        async function saveSystemSettings() {
+            const btnSave = document.getElementById('btn-save-settings');
+            btnSave.disabled = true;
+            btnSave.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> กำลังบันทึก...';
+
+            try {
+                let currentUser = null;
+                try {
+                    currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+                } catch (e) {}
+
+                const payload = {
+                    auto_logout_enabled: document.getElementById('setting-auto-logout').checked,
+                    auto_logout_minutes: parseInt(document.getElementById('setting-auto-logout-minutes').value, 10),
+                    repair_portal_enabled: document.getElementById('setting-repair-portal').checked,
+                    repair_portal_message: document.getElementById('setting-repair-message').value.trim(),
+                    updated_by: currentUser?.fullname || currentUser?.username || 'Admin'
+                };
+
+                const res = await fetch('/api/system/settings', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    localStorage.setItem('system_settings', JSON.stringify(payload));
+                    if (typeof initInactivityWatcher === 'function') {
+                        initInactivityWatcher(payload);
+                    }
+
+                    showToast('บันทึกการตั้งค่าระบบเรียบร้อยแล้ว');
+                } else {
+                    alert(data.message || 'เกิดข้อผิดพลาดในการบันทึกการตั้งค่า');
+                }
+            } catch (e) {
+                console.error('saveSystemSettings error:', e);
+                alert('ไม่สามารถบันทึกการตั้งค่าได้ กรุณาตรวจสอบการเชื่อมต่อเซิร์ฟเวอร์');
+            } finally {
+                btnSave.disabled = false;
+                btnSave.innerHTML = '<i class="fa-solid fa-floppy-disk me-1"></i> บันทึกการเปลี่ยนแปลง';
+            }
+        }
+
+        function showToast(msg) {
+            const msgEl = document.getElementById('toast-message');
+            if (msgEl) msgEl.innerHTML = `<i class="fa-solid fa-circle-check fs-5"></i> ${msg}`;
+            if (toastInstance) toastInstance.show();
+        }
+    </script>
+</body>
+</html>

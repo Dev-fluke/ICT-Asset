@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>รอบการสำรวจครุภัณฑ์ - ระบบบริหารจัดการครุภัณฑ์</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font: Prompt -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+      <!-- เรียกใช้งานไฟล์ CSS ของเราที่นี่ -->
+    <link rel="stylesheet" href="/styles.css">
+            <!-- 🔒 ดึงไฟล์ Auth Guard มาทำงานก่อนใครเพื่อน -->
+    <script src="../auth-guard.js"></script>
+     <!-- ออกจากระบบ -->
+    <script src="../global-app.js"></script> 
+
+    <style>
+
+       
+
+        .card-custom { border-radius: 12px; border: none; box-shadow: 0 4px 20px rgba(0,0,0,0.03); }
+        .status-badge { font-size: 0.75rem; padding: 5px 12px; border-radius: 20px; font-weight: 500; }
+        
+       
+        /* Dynamic Progress Bar Styling */
+        .progress-status-container {
+            width: 100%;
+            min-width: 140px;
+        }
+
+        .progress-custom {
+            height: 8px;
+            background-color: #e2e8f0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            border-radius: 10px;
+            width: var(--progress-val, 0%);
+            background-color: var(--progress-color, #ffc107);
+            transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.8s ease;
+        }
+
+        .progress-text {
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        
+        
+    </style>
+    </style>
+</head>
+<body>
+
+    <div id="app-container" class="d-flex min-vh-100">
+        <!-- Sidebar Placeholder -->
+        <div id="sidebar-placeholder"></div>
+        <script>if (window.renderCachedSidebar) renderCachedSidebar();</script>
+
+        <!-- Main Content -->
+        <div class="main-content flex-grow-1 p-4">
+            <div id="header-placeholder"></div>
+
+            <!-- Header Title & Controls -->
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+                <div>
+                    <h4 class="fw-bold m-0 text-primary"><i class="fa-solid fa-clipboard-check me-2"></i>รอบการสำรวจครุภัณฑ์</h4>
+                    <div class="d-flex align-items-center gap-2 mt-1 flex-wrap">
+                        <small class="text-muted">จัดการรอบการตรวจสอบและตรวจนับสถานะครุภัณฑ์ประจำปี</small>
+                        <div id="role-scope-badge"></div>
+                    </div>
+                </div>
+                <button class="btn btn-primary px-3 rounded-pill shadow-sm" onclick="openCreateModal()">
+                    <i class="fa-solid fa-plus me-1"></i> สร้างรอบการสำรวจใหม่
+                </button>
+            </div>
+
+            <!-- Table Card -->
+            <div class="card card-custom p-4">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6 col-lg-5">
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                            <input type="text" id="search-input" class="form-control border-start-0 bg-light" placeholder="ค้นหาชื่อรอบการสำรวจ..." onkeyup="renderTable()">
+                        </div>
+                    </div>
+                    <div class="col-md-4 col-lg-3">
+                        <select id="filter-status" class="form-select bg-light" onchange="renderTable()">
+                            <option value="">-- สถานะทั้งหมด --</option>
+                            <option value="ACTIVE">กำลังดำเนินการ</option>
+                            <option value="CLOSED">ปิดรอบแล้ว</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>ชื่อรอบการสำรวจ</th>
+                                <th>สังกัดที่เกี่ยวข้อง</th>
+                                <th>ระยะเวลา</th>
+                                <th style="width: 210px;">สถานะความคืบหน้า</th>
+                                <th class="text-center text-nowrap" style="width: 180px;">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="audit-rounds-tbody">
+                            <tr>
+                                <td colspan="5" class="text-center py-5 text-muted">
+                                    <div class="spinner-border spinner-border-sm text-primary me-2"></div>
+                                    กำลังดึงข้อมูลรอบการสำรวจ...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Offcanvas Slide-over Form -->
+    <div class="offcanvas offcanvas-end offcanvas-custom" tabindex="-1" id="roundSlideForm" aria-labelledby="roundSlideFormLabel">
+        <div class="offcanvas-header border-bottom bg-light px-4 py-3">
+            <h5 class="offcanvas-title fw-bold text-primary" id="roundSlideFormLabel">
+                <i class="fa-solid fa-pen-to-square me-2"></i><span id="slide-title">สร้างรอบการสำรวจใหม่</span>
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body p-4">
+            <form id="roundForm" onsubmit="handleSaveRound(event)">
+                <input type="hidden" id="round_id">
+
+                <!-- Section 1: ข้อมูลทั่วไป -->
+                <div class="form-section-title"><i class="fa-solid fa-circle-info me-1"></i> ข้อมูลรอบการสำรวจ</div>
+                
+                <div class="mb-3">
+                    <label class="form-label fw-medium">ชื่อรอบการสำรวจ <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="title" placeholder="เช่น สำรวจครุภัณฑ์ประจำปี หรือ ตรวจนับครั้งที่ 1" required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-medium">สถานะ</label>
+                    <select class="form-select" id="status">
+                        <option value="ACTIVE">กำลังดำเนินการ (ACTIVE)</option>
+                        <option value="CLOSED">ปิดรอบการสำรวจ (CLOSED)</option>
+                    </select>
+                </div>
+                <input type="hidden" id="fiscal_year">
+
+                <hr class="my-4 text-muted">
+
+                <!-- Section 2: เงื่อนไขและระยะเวลา -->
+                <div class="form-section-title"><i class="fa-solid fa-calendar-days me-1"></i> เงื่อนไขและช่วงเวลา</div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-medium">สังกัดที่ต้องการสำรวจ</label>
+                    <select class="form-select" id="department_id">
+                        <option value="">-- สำรวจทุกสังกัด (ทั้งหมด) --</option>
+                    </select>
+                    <small class="text-muted fs-7">* หากไม่เลือกจะหมายถึงสำรวจครุภัณฑ์ทุกหน่วยงานในระบบ</small>
+                </div>
+
+                <div class="row g-2 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label fw-medium">วันที่เริ่มต้น <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control" id="start_date" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-medium">วันที่สิ้นสุด <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control" id="end_date" required>
+                    </div>
+                </div>
+
+                <!-- Footer Actions -->
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end pt-3 border-top">
+                    <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="offcanvas">ยกเลิก</button>
+                    <button type="submit" class="btn btn-primary px-4 fw-medium" id="btn-submit">
+                        <i class="fa-solid fa-floppy-disk me-1"></i> บันทึกข้อมูล
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1100;">
+        <div id="liveToast" class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body" id="toast-message">บันทึกข้อมูลเรียบร้อยแล้ว</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let auditRounds = [];
+        let departments = [];
+        let slideOffcanvas = null;
+        let toastInstance = null;
+        let currentUserRole = 'Staff';
+        let currentUserDeptId = null;
+        let currentUserDeptName = '';
+        let isAdmin = false;
+
+        window.onload = async function() {
+            slideOffcanvas = new bootstrap.Offcanvas(document.getElementById('roundSlideForm'));
+            toastInstance = new bootstrap.Toast(document.getElementById('liveToast'));
+
+            initUserRole();
+            await loadLayout();
+            await fetchDepartments();
+            await fetchAuditRounds();
+        };
+
+        function initUserRole() {
+            try {
+                const storedUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+                const roleRaw = String(storedUser.role || 'staff').toLowerCase().trim();
+                isAdmin = roleRaw === 'admin';
+                currentUserRole = isAdmin ? 'Admin' : 'Staff';
+                currentUserDeptId = storedUser.department_id || null;
+                currentUserDeptName = storedUser.department_name || '';
+            } catch (e) {}
+
+            const badgeEl = document.getElementById('role-scope-badge');
+            if (badgeEl) {
+                if (isAdmin) {
+                    badgeEl.innerHTML = `<span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1 rounded-pill"><i class="fa-solid fa-user-shield me-1"></i>สิทธิ์ Admin: สำรวจและจัดการได้ทุกสังกัด</span>`;
+                } else {
+                    const myDept = currentUserDeptName || 'สังกัดตนเอง';
+                    badgeEl.innerHTML = `<span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1 rounded-pill"><i class="fa-solid fa-building-user me-1"></i>สิทธิ์ Staff: ดำเนินการสำรวจเฉพาะสังกัด <strong>${escapeHtml(myDept)}</strong></span>`;
+                }
+            }
+        }
+
+        function isRoundAccessibleForStaff(r) {
+            if (isAdmin) return true;
+            if (!r.department_id) return true; // รอบสำรวจทุกสังกัด Staff มีสิทธิ์เข้าไปสำรวจเครื่องสังกัดตนเอง
+            const matchId = currentUserDeptId && String(r.department_id) === String(currentUserDeptId);
+            const matchName = currentUserDeptName && String(r.department_name || '').trim().toLowerCase() === String(currentUserDeptName).trim().toLowerCase();
+            return matchId || matchName;
+        }
+
+        function canManageRound(r) {
+            if (isAdmin) return true;
+            if (!r.department_id) return false; // รอบส่วนกลางทุกสังกัด มีเพียง Admin ที่แก้ไข/ลบได้
+            const matchId = currentUserDeptId && String(r.department_id) === String(currentUserDeptId);
+            const matchName = currentUserDeptName && String(r.department_name || '').trim().toLowerCase() === String(currentUserDeptName).trim().toLowerCase();
+            return matchId || matchName;
+        }
+
+        async function loadLayout() {
+            try {
+                await initSidebar('audit-rounds.html');
+            } catch(e) { 
+                console.error('Layout error:', e); 
+            }
+        }
+
+        function setActiveSidebarMenu() {
+            const currentMenuPath = 'audit-rounds.html';
+            const parentCollapseId = 'menu-audit';
+
+            const activeLink = document.querySelector(`.sidebar a[href="${currentMenuPath}"]`);
+            if (activeLink) {
+                activeLink.classList.add('active');
+            }
+
+            const collapseEl = document.getElementById(parentCollapseId);
+            if (collapseEl) {
+                const bsCollapse = new bootstrap.Collapse(collapseEl, { toggle: false });
+                bsCollapse.show();
+
+                const parentToggle = document.querySelector(`a[href="#${parentCollapseId}"]`);
+                if (parentToggle) {
+                    parentToggle.classList.remove('collapsed');
+                    parentToggle.setAttribute('aria-expanded', 'true');
+                }
+            }
+        }
+
+        async function fetchDepartments() {
+            try {
+                const res = await fetch('/api/departments');
+                departments = await res.json();
+                
+                const select = document.getElementById('department_id');
+                if (!isAdmin) {
+                    const myDeptId = currentUserDeptId || '';
+                    const myDeptName = currentUserDeptName || 'สังกัดตนเอง';
+                    select.innerHTML = `<option value="${myDeptId}" selected>📍 ${escapeHtml(myDeptName)}</option>`;
+                    select.disabled = true;
+                } else {
+                    select.innerHTML = '<option value="">-- สำรวจทุกสังกัด (ทั้งหมด) --</option>';
+                    departments.forEach(d => {
+                        select.innerHTML += `<option value="${d.id}">${escapeHtml(d.name)}</option>`;
+                    });
+                    select.disabled = false;
+                }
+            } catch (e) { console.error('Fetch departments error:', e); }
+        }
+
+        async function fetchAuditRounds() {
+            try {
+                const res = await fetch(`/api/audit-rounds?_t=${Date.now()}`);
+                if (!res.ok) throw new Error('Failed to fetch rounds');
+                auditRounds = await res.json();
+                
+                // ตรวจสอบและยิงอัปเดตสถานะเป็น CLOSED ใน DB อัตโนมัติหากครบ 100%
+                await autoCloseCompletedRounds();
+
+                populateFiscalYearFilter();
+                renderTable();
+            } catch (e) {
+                console.error(e);
+                document.getElementById('audit-rounds-tbody').innerHTML = `
+                    <tr><td colspan="6" class="text-center py-4 text-danger">เกิดข้อผิดพลาดในการดึงข้อมูล</td></tr>
+                `;
+            }
+        }
+
+        // ฟังก์ชันช่วยอัปเดตสถานะเป็น CLOSED ใน DB อัตโนมัติหากพบรายการที่มี progress = 100 แต่สถานะยังเป็น ACTIVE
+        async function autoCloseCompletedRounds() {
+            let updatedAny = false;
+            for (let r of auditRounds) {
+                let progress = r.progress !== undefined ? Number(r.progress) : 0;
+                if (progress >= 100 && r.status === 'ACTIVE') {
+                    r.status = 'CLOSED';
+                    updatedAny = true;
+                    try {
+                        await fetch(`/api/audit-rounds/${r.id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                title: r.title,
+                                fiscal_year: r.fiscal_year,
+                                status: 'CLOSED',
+                                department_id: r.department_id || null,
+                                start_date: r.start_date,
+                                end_date: r.end_date
+                            })
+                        });
+                    } catch (err) {
+                        console.error(`Auto close round ${r.id} failed:`, err);
+                    }
+                }
+            }
+        }
+
+        function populateFiscalYearFilter() {
+            // นำตัวกรองปีงบประมาณออกตามความต้องการของผู้ใช้
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('audit-rounds-tbody');
+            const search = document.getElementById('search-input').value.toLowerCase().trim();
+            const statusFilter = document.getElementById('filter-status').value;
+
+            const filtered = auditRounds.filter(r => {
+                // กรองเฉพาะรอบที่ Staff เข้าถึงได้
+                if (!isAdmin && !isRoundAccessibleForStaff(r)) return false;
+
+                const isCompleted = (r.progress !== undefined && Number(r.progress) >= 100);
+                const currentStatus = (isCompleted || r.status === 'CLOSED') ? 'CLOSED' : 'ACTIVE';
+
+                const matchSearch = !search || r.title.toLowerCase().includes(search);
+                const matchStatus = !statusFilter || currentStatus === statusFilter;
+                return matchSearch && matchStatus;
+            });
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-muted">ไม่พบข้อมูลรอบการสำรวจ</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = '';
+            filtered.forEach(r => {
+                let progress = r.progress !== undefined ? Number(r.progress) : (r.status === 'CLOSED' ? 100 : 0);
+                progress = Math.min(100, Math.max(0, progress));
+
+                let isClosed = (progress === 100 || r.status === 'CLOSED');
+                let colorClass = '#ffc107'; 
+                let statusLabel = '';
+
+                if (isClosed) {
+                    colorClass = '#198754';
+                    statusLabel = `<span class="text-success"><i class="fa-solid fa-lock me-1"></i>100% ปิดรอบแล้ว</span>`;
+                } else if (progress > 0) {
+                    const hue = Math.round(45 + (progress * 0.12)); 
+                    colorClass = `hsl(${hue}, 100%, 45%)`;
+                    statusLabel = `<span class="text-warning-emphasis"><i class="fa-solid fa-spinner fa-spin me-1"></i>${progress}% กำลังดำเนินการ</span>`;
+                } else {
+                    colorClass = '#94a3b8';
+                    statusLabel = `<span class="text-muted"><i class="fa-solid fa-clock me-1"></i>0% ยังไม่เริ่ม</span>`;
+                }
+
+                const statusBadge = `
+                    <div class="progress-status-container">
+                        <div class="d-flex justify-content-between align-items-center mb-1 progress-text">
+                            ${statusLabel}
+                        </div>
+                        <div class="progress progress-custom">
+                            <div class="progress-bar-fill" style="--progress-val: ${progress}%; --progress-color: ${colorClass};"></div>
+                        </div>
+                    </div>
+                `;
+
+                const canManage = canManageRound(r);
+                let manageButtons = '';
+                if (canManage) {
+                    manageButtons = `
+                        <button class="btn btn-sm btn-outline-warning" onclick="openEditModal(${r.id})" title="แก้ไข">
+                            <i class="fa-solid fa-pen"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteRound(${r.id})" title="ลบ">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    `;
+                } else {
+                    manageButtons = `
+                        <button class="btn btn-sm btn-light text-muted border" disabled title="เฉพาะผู้ดูแลระบบ"><i class="fa-solid fa-lock"></i></button>
+                    `;
+                }
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="fw-bold text-primary">${escapeHtml(r.title)}</td>
+                        <td>${escapeHtml(r.department_name || 'ทุกสังกัด')}</td>
+                        <td><small class="text-muted">${formatDate(r.start_date)} - ${formatDate(r.end_date)}</small></td>
+                        <td>${statusBadge}</td>
+                        <td class="text-center text-nowrap">
+                            <div class="d-inline-flex align-items-center justify-content-center gap-1 text-nowrap">
+                                <a href="audit-results.html?round_id=${r.id}" class="btn btn-sm btn-outline-primary" title="เข้าสู่หน้าสำรวจ">
+                                    <i class="fa-solid fa-list-check me-1"></i>สำรวจ
+                                </a>
+                                ${manageButtons}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function openCreateModal() {
+            document.getElementById('roundForm').reset();
+            document.getElementById('round_id').value = '';
+            document.getElementById('slide-title').textContent = 'สร้างรอบการสำรวจใหม่';
+            
+            const currentYear = new Date().getFullYear() + 543;
+            document.getElementById('fiscal_year').value = currentYear;
+            document.getElementById('status').value = 'ACTIVE';
+            
+            const deptSelect = document.getElementById('department_id');
+            if (!isAdmin) {
+                deptSelect.value = currentUserDeptId || '';
+                deptSelect.disabled = true;
+            } else {
+                deptSelect.value = '';
+                deptSelect.disabled = false;
+            }
+
+            slideOffcanvas.show();
+        }
+
+        function openEditModal(id) {
+            const item = auditRounds.find(r => r.id == id);
+            if (!item) return;
+
+            if (!canManageRound(item)) {
+                alert('คุณไม่มีสิทธิ์แก้ไขรอบการสำรวจนี้');
+                return;
+            }
+
+            document.getElementById('round_id').value = item.id;
+            document.getElementById('title').value = item.title;
+            document.getElementById('fiscal_year').value = item.fiscal_year;
+            
+            const isCompleted = (item.progress !== undefined && Number(item.progress) >= 100);
+            document.getElementById('status').value = isCompleted ? 'CLOSED' : (item.status || 'ACTIVE');
+            
+            const deptSelect = document.getElementById('department_id');
+            deptSelect.value = item.department_id || '';
+            if (!isAdmin) {
+                deptSelect.value = currentUserDeptId || '';
+                deptSelect.disabled = true;
+            } else {
+                deptSelect.disabled = false;
+            }
+
+            document.getElementById('start_date').value = item.start_date ? item.start_date.split('T')[0] : '';
+            document.getElementById('end_date').value = item.end_date ? item.end_date.split('T')[0] : '';
+
+            document.getElementById('slide-title').textContent = 'แก้ไขรอบการสำรวจ';
+            slideOffcanvas.show();
+        }
+
+        async function handleSaveRound(e) {
+            e.preventDefault();
+
+            const id = document.getElementById('round_id').value;
+            let deptId = document.getElementById('department_id').value || null;
+            if (!isAdmin) {
+                deptId = currentUserDeptId || null;
+            }
+
+            const payload = {
+                title: document.getElementById('title').value.trim(),
+                fiscal_year: document.getElementById('fiscal_year').value,
+                status: document.getElementById('status').value,
+                department_id: deptId,
+                start_date: document.getElementById('start_date').value,
+                end_date: document.getElementById('end_date').value
+            };
+
+            const url = id ? `/api/audit-rounds/${id}` : '/api/audit-rounds';
+            const method = id ? 'PUT' : 'POST';
+
+            try {
+                const res = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await res.json();
+                if (!res.ok) throw new Error(result.message || 'บันทึกข้อมูลไม่สำเร็จ');
+
+                showToast(result.message || 'บันทึกข้อมูลเรียบร้อยแล้ว');
+                slideOffcanvas.hide();
+                await fetchAuditRounds();
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        async function deleteRound(id) {
+            const item = auditRounds.find(r => r.id == id);
+            if (!item) return;
+
+            if (!canManageRound(item)) {
+                alert('คุณไม่มีสิทธิ์ลบรอบการสำรวจนี้');
+                return;
+            }
+
+            if (!confirm('คุณต้องการลบรอบการสำรวจนี้ใช่หรือไม่?')) return;
+
+            try {
+                const res = await fetch(`/api/audit-rounds/${id}`, { method: 'DELETE' });
+                const result = await res.json();
+                if (!res.ok) throw new Error(result.message || 'ลบข้อมูลไม่สำเร็จ');
+
+                showToast('ลบรายการเรียบร้อยแล้ว');
+                await fetchAuditRounds();
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        function showToast(msg) {
+            document.getElementById('toast-message').textContent = msg;
+            toastInstance.show();
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            return new Date(dateStr).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+    </script>
+</body>
+</html>

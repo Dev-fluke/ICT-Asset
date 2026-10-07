@@ -1,0 +1,1650 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ครุภัณฑ์ทั้งหมด - ระบบบริหารจัดการครุภัณฑ์</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font: Prompt -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <!-- เรียกใช้งานไฟล์ CSS ของเราที่นี่ -->
+    <link rel="stylesheet" href="/styles.css">
+    <!-- 🔒 ดึงไฟล์ Auth Guard มาทำงานก่อนใครเพื่อน -->
+    <script src="../auth-guard.js"></script>
+    <!-- ออกจากระบบ -->
+    <script src="../global-app.js"></script> 
+</head>
+<body>
+
+    <div id="app-container">
+        <!-- Sidebar Layout -->
+        <div id="sidebar-placeholder"></div>
+        <script>if (window.renderCachedSidebar) renderCachedSidebar();</script>
+
+        <!-- Main Content -->
+        <div class="main-content flex-grow-1 p-4">
+            <div id="header-placeholder"></div>
+
+            <div class="card card-custom p-4">
+                <div class="d-flex flex-column flex-xl-row justify-content-between align-items-xl-center gap-3 mb-4">
+                    <div>
+                        <h5 class="fw-bold m-0 text-primary"><i class="fa-solid fa-boxes-packing text-primary me-2"></i> รายการครุภัณฑ์ทั้งหมด</h5>
+                        <div id="role-scope-badge" class="mt-1 small"></div>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 justify-content-end">
+                        <!-- Dropdown เลือกสังกัด -->
+                        <div style="min-width: 160px;">
+                            <select id="filter-department" class="form-select form-select-sm" onchange="onDepartmentFilterChange()">
+                                <option value="all">📍 ทุกสังกัด</option>
+                            </select>
+                        </div>
+                        <!-- Dropdown เลือกหน่วยงาน -->
+                        <div style="min-width: 160px;">
+                            <select id="filter-organization" class="form-select form-select-sm" onchange="onOrganizationFilterChange()">
+                                <option value="all">🏢 ทุกหน่วยงาน</option>
+                            </select>
+                        </div>
+                          <button class="btn btn-sm btn-outline-success shadow-sm" onclick="downloadExcel()">
+                            <i class="fa-solid fa-file-excel me-1"></i> Excel
+                        </button>
+                        <button class="btn btn-sm btn-primary shadow-sm" onclick="openAddModal()">
+                            <i class="fa-solid fa-plus me-1"></i> เพิ่มครุภัณฑ์
+                        </button>
+                        <!-- ค้นหาข้อความ -->
+                        <div class="input-group input-group-sm" style="min-width: 220px;">
+                            <span class="input-group-text bg-white border-end-0 text-muted">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                            </span>
+                            <input type="text" id="search-input" class="form-control border-start-0 ps-0" 
+                                   placeholder="ค้นหาชื่อเครื่อง, ผู้ใช้..." onkeyup="handleSearch()">
+                        </div>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover table-custom align-middle">
+                        <thead>
+                            <tr>
+                                <th class="text-center" style="width: 60px;">ลำดับ</th>
+                                <th>ชื่อเครื่อง</th>
+                                <th>ชื่อผู้ใช้งาน</th>
+                                <th>ตำแหน่ง</th>
+                                <th>หมวดหมู่</th>
+                                <th>สังกัด</th>
+                                <th>หน่วยงาน</th>
+                                <th>สถานะ</th>
+                                <th>สำรวจล่าสุด</th>
+                                <th class="text-center">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="eq-table-body"></tbody>
+                    </table>
+                </div>
+
+                <!-- ส่วนควบคุมการแบ่งหน้า Pagination -->
+                <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
+                    <div class="small text-muted" id="page-info">
+                        กำลังแสดงรายการ - ถึง - จากทั้งหมด - รายการ
+                    </div>
+                    <nav>
+                        <ul class="pagination pagination-sm m-0" id="pagination-container"></ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= Modal เพิ่ม/แก้ไขครุภัณฑ์ ================= -->
+    <div class="modal fade" id="addModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-primary text-white" id="modal-header-bg">
+                    <h5 class="modal-title fw-bold" id="modal-title-text"><i class="fa-solid fa-plus me-1"></i> เพิ่มครุภัณฑ์ใหม่</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="add-eq-form">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">ชื่อเครื่อง <span class="text-danger">*</span></label>
+                                <input type="text" id="eq-computer-name" class="form-control" placeholder="เช่น PC-OFFICE-01" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">ชื่อผู้ใช้งาน</label>
+                                <input type="text" id="eq-user-name" class="form-control" placeholder="เช่น นายสมชาย ใจดี">
+                            </div>
+
+                            <!-- input ตำแหน่ง และ อีเมล ทอ. -->
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">ตำแหน่ง</label>
+                                <input type="text" id="eq-position" class="form-control" placeholder="เช่น นายทหารเทคโนโลยีสารสนเทศ">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">อีเมล ทอ.</label>
+                                <input type="email" id="eq-email" class="form-control" placeholder="เช่น example@rtaf.mi.th">
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">เบอร์โทรศัพท์สำนักงาน</label>
+                                <input type="text" id="eq-phone" class="form-control" placeholder="เช่น 02-123-4567 ต่อ 101">
+                            </div>
+                            <div class="col-md-6">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label small fw-bold m-0">หมวดหมู่</label>
+                                    <button type="button" class="btn btn-link btn-sm text-decoration-none p-0 fw-bold admin-only" onclick="openManageCategoryModal()">⚙️ จัดการ</button>
+                                </div>
+                                <select id="eq-category" class="form-select">
+                                    <option value="">-- เลือกหมวดหมู่ --</option>
+                                </select>
+                            </div>
+
+                            <!-- ส่วนเลือก สังกัด -->
+                            <div class="col-md-6">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label small fw-bold m-0">สังกัด</label>
+                                    <button type="button" class="btn btn-link btn-sm text-decoration-none p-0 fw-bold admin-only" onclick="openManageDepartmentModal()">⚙️ จัดการ</button>
+                                </div>
+                                <select id="eq-department" class="form-select" onchange="onDepartmentChange()">
+                                    <option value="">-- เลือกสังกัด --</option>
+                                </select>
+                            </div>
+
+                            <!-- ส่วนเลือก หน่วยงาน -->
+                            <div class="col-md-6">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label small fw-bold m-0">หน่วยงาน</label>
+                                    <button type="button" class="btn btn-link btn-sm text-decoration-none p-0 fw-bold text-primary" onclick="openManageOrganizationModal()">⚙️ จัดการ</button>
+                                </div>
+                                <select id="eq-organization" class="form-select" disabled>
+                                    <option value="">-- กรุณาเลือกสังกัดก่อน --</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-12" id="status-field-container" style="display: none;">
+                                <label class="form-label small fw-bold">สถานะ</label>
+                                <select id="eq-status" class="form-select">
+                                    <option value="ใช้งานปกติ">ใช้งานปกติ</option>
+                                    <option value="ส่งซ่อม">ส่งซ่อม</option>
+                                    <option value="จำหน่าย">จำหน่าย</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- ส่วนข้อมูลรายละเอียดเพิ่มเติม (Dynamic Detail List) -->
+                        <div class="mb-3 border-top pt-3 mt-4">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label class="form-label fw-bold mb-0">
+                                    <i class="fa-solid fa-list-check me-1"></i> รายรายละเอียดเพิ่มเติม/สเปก
+                                </label>
+                                <div>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary me-1 admin-only" onclick="openManageAttributeModal()">
+                                        <i class="fa-solid fa-gear me-1"></i> จัดการหัวข้อ
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-success" onclick="addDetailRow()">
+                                        <i class="fa-solid fa-plus me-1"></i> เพิ่มหัวข้อ
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="detail-list-container"></div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="button" onclick="saveEquipment()" class="btn btn-primary px-4" id="btn-save-eq"><i class="fa-solid fa-save me-1"></i> บันทึกข้อมูล</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal จัดการหมวดหมู่ -->
+    <div class="modal fade" id="manageCategoryModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title fw-bold">⚙️ จัดการหมวดหมู่</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="add-category-form" onsubmit="submitCategory(event)" class="mb-3">
+                        <div class="input-group">
+                            <input type="text" id="cat-name-input" class="form-control" placeholder="ชื่อหมวดหมู่ใหม่" required>
+                            <button type="submit" class="btn btn-primary">➕ เพิ่ม</button>
+                        </div>
+                    </form>
+                    <ul id="category-list" class="list-group"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal จัดการสังกัด -->
+    <div class="modal fade" id="manageDepartmentModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title fw-bold">⚙️ จัดการสังกัด</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="add-department-form" onsubmit="submitDepartment(event)" class="mb-3">
+                        <div class="input-group">
+                            <input type="text" id="dept-name-input" class="form-control" placeholder="ชื่อสังกัดใหม่" required>
+                            <button type="submit" class="btn btn-primary">➕ เพิ่ม</button>
+                        </div>
+                    </form>
+                    <ul id="department-list" class="list-group"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal จัดการหน่วยงาน -->
+    <div class="modal fade" id="manageOrganizationModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title fw-bold">⚙️ จัดการหน่วยงาน</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">สังกัดที่ต้องการจัดการ</label>
+                        <select id="modal-org-dept-select" class="form-select" onchange="loadOrganizationsForModal()">
+                            <option value="">-- เลือกสังกัด --</option>
+                        </select>
+                    </div>
+                    <form id="add-organization-form" onsubmit="submitOrganization(event)" class="mb-3">
+                        <div class="input-group">
+                            <input type="text" id="org-name-input" class="form-control" placeholder="ชื่อหน่วยงานใหม่" required>
+                            <button type="submit" class="btn btn-primary">➕ เพิ่ม</button>
+                        </div>
+                    </form>
+                    <ul id="organization-list" class="list-group"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal จัดการหัวข้อสเปกมาตรฐาน -->
+    <div class="modal fade" id="manageAttributeModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title fw-bold">⚙️ จัดการหัวข้อสเปกมาตรฐาน</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="input-group mb-3">
+                        <input type="text" id="new-attr-name" class="form-control" placeholder="ระบุชื่อหัวข้อใหม่ (เช่น RAM, CPU)">
+                        <button class="btn btn-primary" onclick="addAttribute()">➕ เพิ่ม</button>
+                    </div>
+                    <ul class="list-group" id="attribute-list"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal แสดงรายละเอียดครุภัณฑ์ -->
+    <div class="modal fade" id="viewEquipmentModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content shadow">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title fw-bold">
+                        <i class="fa-solid fa-boxes-packing me-2"></i>รายละเอียดครุภัณฑ์
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-8">
+                            <table class="table table-borderless table-sm mb-0">
+                                <tbody>
+                                    <tr>
+                                        <th style="width: 35%;" class="text-secondary">ชื่อเครื่อง:</th>
+                                        <td id="view-eq-computer-name" class="fw-bold text-primary"></td>
+                                    </tr>
+                                    <tr>
+                                        <th class="text-secondary">ชื่อผู้ใช้งาน:</th>
+                                        <td id="view-eq-user-name" class="fw-bold"></td>
+                                    </tr>
+                                    <tr>
+                                        <th class="text-secondary">ตำแหน่ง:</th>
+                                        <td id="view-eq-position"></td>
+                                    </tr>
+                                    <tr>
+                                        <th class="text-secondary">อีเมล ทอ.:</th>
+                                        <td id="view-eq-email"></td>
+                                    </tr>
+                                    <tr>
+                                        <th class="text-secondary">เบอร์โทรศัพท์สำนักงาน:</th>
+                                        <td id="view-eq-phone"></td>
+                                    </tr>
+                                    <tr>
+                                        <th class="text-secondary">หมวดหมู่:</th>
+                                        <td id="view-eq-category"></td>
+                                    </tr>
+                                    <tr>
+                                        <th class="text-secondary">สังกัด:</th>
+                                        <td id="view-eq-department"></td>
+                                    </tr>
+                                    <tr>
+                                        <th class="text-secondary">หน่วยงาน:</th>
+                                        <td id="view-eq-organization"></td>
+                                    </tr>
+                                    <tr>
+                                        <th class="text-secondary">สถานะ:</th>
+                                        <td id="view-eq-status"></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="col-md-4 text-center border-start d-flex flex-column align-items-center justify-content-center">
+                            <a id="view-eq-repair-link" href="#" target="_blank" rel="noopener noreferrer" title="คลิกเพื่อไปหน้าแจ้งซ่อม (เปิดแท็บใหม่)" class="text-decoration-none">
+                                <img id="view-eq-qrcode" src="" alt="QR Code" class="img-fluid mb-2 border p-1 rounded hover-shadow" style="max-height: 120px; cursor: pointer;">
+                            </a>
+                            <small class="text-muted">คลิกรูป QR Code เพื่อแจ้งซ่อม</small>
+                        </div>
+                    </div>
+
+                    <div class="border-top pt-3">
+                        <h6 class="fw-bold mb-3 text-secondary">
+                            <i class="fa-solid fa-circle-info me-1"></i>คุณลักษณะเฉพาะ / สเปกเพิ่มเติม
+                        </h6>
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 35%;">หัวข้อ</th>
+                                        <th>รายละเอียด</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="view-details-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let globalEquipments = [];
+        let filteredEquipments = [];
+        let currentCategories = [];
+        let currentDepartments = [];
+        let currentOrganizationsModal = [];
+        let currentAttributes = [];
+        let editingEquipmentId = null;
+
+        let currentUserRole = 'Staff'; 
+        let currentUserDeptId = null;
+        let currentUserDeptName = '';
+
+        let currentPage = 1;
+        const rowsPerPage = 10;
+
+        window.onload = async function() {
+            await fetchUserProfile();
+            await loadLayout();
+            await Promise.all([
+                loadOptions(),
+                loadAttributes(),
+                loadData()
+            ]);
+            applyRolePermissions();
+            checkAutoOpenModal();
+        };
+
+        async function fetchUserProfile() {
+            try {
+                const storedUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+                const userId = storedUser.id || localStorage.getItem('user_id') || sessionStorage.getItem('user_id');
+
+                if (storedUser.role) {
+                    currentUserRole = storedUser.role;
+                    currentUserDeptId = storedUser.department_id;
+                    currentUserDeptName = storedUser.department_name || '';
+                }
+
+                if (userId) {
+                    const res = await fetch('/api/me', { headers: { 'x-user-id': userId } });
+                    if (res.ok) {
+                        const userData = await res.json();
+                        currentUserRole = userData.role || currentUserRole;
+                        currentUserDeptId = userData.department_id || currentUserDeptId;
+                        currentUserDeptName = userData.department_name || currentUserDeptName;
+                    }
+                }
+            } catch (err) {
+                console.error('Error fetching user profile:', err);
+            }
+        }
+
+        function canOperateEquipment(eq) {
+            const isAdmin = String(currentUserRole).toLowerCase().trim() === 'admin';
+            if (isAdmin) return true;
+            const matchId = currentUserDeptId && String(eq.department_id) === String(currentUserDeptId);
+            const matchName = currentUserDeptName && String(eq.department_name || '').trim().toLowerCase() === String(currentUserDeptName).trim().toLowerCase();
+            return matchId || matchName;
+        }
+
+        function applyRolePermissions() {
+            const isAdmin = String(currentUserRole).toLowerCase().trim() === 'admin';
+            const adminElements = document.querySelectorAll('.admin-only');
+            if (!isAdmin) {
+                adminElements.forEach(el => el.style.display = 'none');
+            } else {
+                adminElements.forEach(el => el.style.display = 'inline-block');
+            }
+
+            const badgeEl = document.getElementById('role-scope-badge');
+            if (badgeEl) {
+                if (isAdmin) {
+                    badgeEl.innerHTML = `<span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1 rounded-pill"><i class="fa-solid fa-user-shield me-1"></i>สิทธิ์ Admin: จัดการครุภัณฑ์ได้ทุกสังกัด</span>`;
+                } else {
+                    const myDept = currentUserDeptName || 'สังกัดตนเอง';
+                    badgeEl.innerHTML = `<span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1 rounded-pill"><i class="fa-solid fa-building-user me-1"></i>สิทธิ์ Staff: แสดงและแก้ไขได้เฉพาะสังกัด <strong>${escapeHtml(myDept)}</strong></span>`;
+                }
+            }
+        }
+
+        async function loadLayout() {
+            try {
+                await initSidebar('equipments.html');
+            } catch(e) { 
+                console.error('Layout error:', e); 
+            }
+        }
+
+        function setActiveSidebarMenu() {
+            const currentPath = window.location.pathname;
+            const sidebarPlaceholder = document.getElementById('sidebar-placeholder');
+            const menuLinks = sidebarPlaceholder.querySelectorAll('a');
+
+            menuLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href') && currentPath.includes(link.getAttribute('href'))) {
+                    link.classList.add('active');
+                    const parentCollapse = link.closest('.collapse');
+                    if (parentCollapse) {
+                        parentCollapse.classList.add('show');
+                        const toggleBtn = sidebarPlaceholder.querySelector(`[data-bs-target="#${parentCollapse.id}"]`);
+                        if (toggleBtn) {
+                            toggleBtn.classList.add('active');
+                            toggleBtn.setAttribute('aria-expanded', 'true');
+                        }
+                    }
+                }
+            });
+        }
+
+        async function loadOptions() {
+            try {
+                const [resCat, resDept] = await Promise.all([
+                    fetch('/api/categories'),
+                    fetch('/api/departments')
+                ]);
+
+                currentCategories = await resCat.json();
+                currentDepartments = await resDept.json();
+
+                renderCategoriesOptions();
+                renderDepartmentsOptions();
+            } catch (err) { 
+                console.error('Error loading options:', err); 
+            }
+        }
+
+        function renderCategoriesOptions() {
+            const prevCatVal = document.getElementById('eq-category') ? document.getElementById('eq-category').value : '';
+            let catOptions = '<option value="">-- เลือกหมวดหมู่ --</option>';
+            let catListHtml = '';
+
+            if (Array.isArray(currentCategories) && currentCategories.length > 0) {
+                currentCategories.forEach((c, idx) => {
+                    catOptions += `<option value="${c.id}">${escapeHtml(c.name)}</option>`;
+                    catListHtml += `
+                        <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+                            <span>${escapeHtml(c.name)}</span>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-secondary" onclick="moveCategory(${idx}, 'up')" ${idx === 0 ? 'disabled' : ''}><i class="fa-solid fa-arrow-up"></i></button>
+                                <button class="btn btn-outline-secondary" onclick="moveCategory(${idx}, 'down')" ${idx === currentCategories.length - 1 ? 'disabled' : ''}><i class="fa-solid fa-arrow-down"></i></button>
+                                <button class="btn btn-outline-warning" onclick="editCategory(${c.id}, '${escapeHtml(c.name)}')"><i class="fa-solid fa-pen-to-square"></i></button>
+                                <button class="btn btn-outline-danger" onclick="deleteCategory(${c.id})"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </li>`;
+                });
+            } else {
+                catListHtml = '<li class="list-group-item text-center text-muted py-3">ยังไม่มีหมวดหมู่</li>';
+            }
+            const catSelect = document.getElementById('eq-category');
+            if (catSelect) {
+                catSelect.innerHTML = catOptions;
+                if (prevCatVal) catSelect.value = prevCatVal;
+            }
+            const catList = document.getElementById('category-list');
+            if (catList) catList.innerHTML = catListHtml;
+        }
+
+        function renderDepartmentsOptions() {
+            const prevDeptVal = document.getElementById('eq-department') ? document.getElementById('eq-department').value : '';
+            let deptOptions = '<option value="">-- เลือกสังกัด --</option>';
+            let deptListHtml = '';
+
+            if (Array.isArray(currentDepartments) && currentDepartments.length > 0) {
+                currentDepartments.forEach((d, idx) => {
+                    deptOptions += `<option value="${d.id}">${escapeHtml(d.name)}</option>`;
+                    deptListHtml += `
+                        <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+                            <span>${escapeHtml(d.name)}</span>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-secondary" onclick="moveDepartment(${idx}, 'up')" ${idx === 0 ? 'disabled' : ''}><i class="fa-solid fa-arrow-up"></i></button>
+                                <button class="btn btn-outline-secondary" onclick="moveDepartment(${idx}, 'down')" ${idx === currentDepartments.length - 1 ? 'disabled' : ''}><i class="fa-solid fa-arrow-down"></i></button>
+                                <button class="btn btn-outline-warning" onclick="editDepartment(${d.id}, '${escapeHtml(d.name)}')"><i class="fa-solid fa-pen-to-square"></i></button>
+                                <button class="btn btn-outline-danger" onclick="deleteDepartment(${d.id})"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </li>`;
+                });
+            } else {
+                deptListHtml = '<li class="list-group-item text-center text-muted py-3">ยังไม่มีสังกัด</li>';
+            }
+            
+            const deptSelect = document.getElementById('eq-department');
+            if (deptSelect) {
+                deptSelect.innerHTML = deptOptions;
+                if (currentUserRole !== 'Admin' && currentUserDeptId) {
+                    deptSelect.value = currentUserDeptId;
+                    deptSelect.disabled = true; 
+                    onDepartmentChange();
+                } else {
+                    deptSelect.disabled = false;
+                    if (prevDeptVal) deptSelect.value = prevDeptVal;
+                }
+            }
+            const deptList = document.getElementById('department-list');
+            if (deptList) deptList.innerHTML = deptListHtml;
+        }
+
+        async function onDepartmentChange(selectedOrgId = null) {
+            const deptId = document.getElementById('eq-department').value;
+            const orgSelect = document.getElementById('eq-organization');
+
+            if (!deptId) {
+                orgSelect.innerHTML = '<option value="">-- กรุณาเลือกสังกัดก่อน --</option>';
+                orgSelect.disabled = true;
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/organizations?department_id=${deptId}`);
+                const orgs = await res.json();
+
+                let options = '<option value="">-- เลือกหน่วยงาน --</option>';
+                if (orgs && orgs.length > 0) {
+                    orgs.forEach(o => {
+                        options += `<option value="${o.id}">${escapeHtml(o.name)}</option>`;
+                    });
+                    orgSelect.disabled = false;
+                } else {
+                    options = '<option value="">-- ไม่มีหน่วยงานในสังกัดนี้ --</option>';
+                    orgSelect.disabled = true;
+                }
+
+                orgSelect.innerHTML = options;
+
+                if (selectedOrgId) {
+                    orgSelect.value = selectedOrgId;
+                }
+            } catch (err) {
+                console.error('Error fetching organizations:', err);
+            }
+        }
+
+        function openManageCategoryModal() {
+            renderCategoriesOptions();
+            const input = document.getElementById('cat-name-input');
+            if (input) input.value = '';
+            new bootstrap.Modal(document.getElementById('manageCategoryModal')).show();
+        }
+
+        function openManageDepartmentModal() {
+            renderDepartmentsOptions();
+            const input = document.getElementById('dept-name-input');
+            if (input) input.value = '';
+            new bootstrap.Modal(document.getElementById('manageDepartmentModal')).show();
+        }
+
+        function openManageAttributeModal() {
+            if (typeof loadAttributes === 'function') {
+                loadAttributes();
+            } else if (typeof renderAttributesOptions === 'function') {
+                renderAttributesOptions();
+            }
+            new bootstrap.Modal(document.getElementById('manageAttributeModal')).show();
+        }
+
+        // จัดการเปิด Modal ซ้อน Modal (Stacked Modals) ให้ Modal ตัวบนมี z-index สูงกว่า และเมื่อปิดตัวบน ตัวหลักยังเลื่อน Scroll ได้
+        document.addEventListener('show.bs.modal', function (e) {
+            const openModals = document.querySelectorAll('.modal.show');
+            if (openModals.length > 0 && e.target.id !== 'addModal' && e.target.id !== 'viewEquipmentModal') {
+                e.target.style.zIndex = '1065';
+                setTimeout(() => {
+                    const backdrops = document.querySelectorAll('.modal-backdrop');
+                    if (backdrops.length > 1) {
+                        backdrops[backdrops.length - 1].style.zIndex = '1060';
+                    }
+                }, 0);
+            }
+        });
+
+        document.addEventListener('hidden.bs.modal', function () {
+            const openModals = document.querySelectorAll('.modal.show');
+            if (openModals.length > 0) {
+                document.body.classList.add('modal-open');
+                document.body.style.overflow = 'hidden';
+            }
+        });
+
+        function openManageOrganizationModal() {
+            const selectedDeptId = document.getElementById('eq-department').value;
+            const modalDeptSelect = document.getElementById('modal-org-dept-select');
+
+            let deptOptions = '<option value="">-- เลือกสังกัด --</option>';
+            if (Array.isArray(currentDepartments)) {
+                currentDepartments.forEach(d => {
+                    deptOptions += `<option value="${d.id}">${escapeHtml(d.name)}</option>`;
+                });
+            }
+            modalDeptSelect.innerHTML = deptOptions;
+
+            if (selectedDeptId) {
+                modalDeptSelect.value = selectedDeptId;
+            }
+
+            if (currentUserRole !== 'Admin' && currentUserDeptId) {
+                modalDeptSelect.value = currentUserDeptId;
+                modalDeptSelect.disabled = true;
+            } else {
+                modalDeptSelect.disabled = false;
+            }
+
+            loadOrganizationsForModal();
+            new bootstrap.Modal(document.getElementById('manageOrganizationModal')).show();
+        }
+
+        async function loadOrganizationsForModal() {
+            const deptId = document.getElementById('modal-org-dept-select').value;
+            const listEl = document.getElementById('organization-list');
+
+            if (!deptId) {
+                listEl.innerHTML = '<li class="list-group-item text-center text-muted py-3">กรุณาเลือกสังกัดเพื่อจัดการหน่วยงาน</li>';
+                currentOrganizationsModal = [];
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/organizations?department_id=${deptId}`);
+                currentOrganizationsModal = await res.json();
+                renderOrganizationsModalList();
+            } catch (err) {
+                console.error('Error loading organizations for modal:', err);
+            }
+        }
+
+        function renderOrganizationsModalList() {
+            const listEl = document.getElementById('organization-list');
+            let html = '';
+
+            if (Array.isArray(currentOrganizationsModal) && currentOrganizationsModal.length > 0) {
+                currentOrganizationsModal.forEach((o, idx) => {
+                    html += `
+                        <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+                            <span>${escapeHtml(o.name)}</span>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-secondary" onclick="moveOrganization(${idx}, 'up')" ${idx === 0 ? 'disabled' : ''}><i class="fa-solid fa-arrow-up"></i></button>
+                                <button class="btn btn-outline-secondary" onclick="moveOrganization(${idx}, 'down')" ${idx === currentOrganizationsModal.length - 1 ? 'disabled' : ''}><i class="fa-solid fa-arrow-down"></i></button>
+                                <button class="btn btn-outline-warning" onclick="editOrganization(${o.id}, '${escapeHtml(o.name)}')"><i class="fa-solid fa-pen-to-square"></i></button>
+                                <button class="btn btn-outline-danger" onclick="deleteOrganization(${o.id})"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </li>`;
+                });
+            } else {
+                html = '<li class="list-group-item text-center text-muted py-3">ยังไม่มีหน่วยงานในสังกัดนี้</li>';
+            }
+            listEl.innerHTML = html;
+        }
+
+        async function submitOrganization(e) {
+            e.preventDefault();
+            const deptId = document.getElementById('modal-org-dept-select').value;
+            const nameInput = document.getElementById('org-name-input');
+            const name = nameInput.value.trim();
+
+            if (!deptId) return alert('กรุณาเลือกสังกัดก่อนเพิ่มหน่วยงาน');
+            if (!name) return alert('กรุณากรอกชื่อหน่วยงาน');
+
+            try {
+                const res = await fetch('/api/organizations', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, department_id: deptId })
+                });
+
+                if (res.ok) {
+                    nameInput.value = '';
+                    await loadOrganizationsForModal();
+                    await onDepartmentChange();
+                } else {
+                    const data = await res.json();
+                    alert(data.message || 'ไม่สามารถเพิ่มหน่วยงานได้');
+                }
+            } catch (err) {
+                alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
+            }
+        }
+
+        async function moveOrganization(index, direction) {
+            const newIndex = direction === 'up' ? index - 1 : index + 1;
+            if (newIndex < 0 || newIndex >= currentOrganizationsModal.length) return;
+
+            const temp = currentOrganizationsModal[index];
+            currentOrganizationsModal[index] = currentOrganizationsModal[newIndex];
+            currentOrganizationsModal[newIndex] = temp;
+
+            renderOrganizationsModalList();
+
+            const payload = currentOrganizationsModal.map((item, idx) => ({ id: item.id, sort_order: idx + 1 }));
+
+            try {
+                const res = await fetch('/api/organizations/reorder', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items: payload })
+                });
+
+                if (!res.ok) {
+                    alert('ไม่สามารถอัปเดตลำดับหน่วยงานได้');
+                    await loadOrganizationsForModal();
+                } else {
+                    await onDepartmentChange();
+                }
+            } catch (err) {
+                alert('เกิดข้อผิดพลาดในการเปลี่ยนลำดับ');
+                await loadOrganizationsForModal();
+            }
+        }
+
+        async function editOrganization(id, currentName) {
+            const name = prompt('แก้ไขชื่อหน่วยงาน:', currentName);
+            if (!name || name.trim() === currentName) return;
+
+            try {
+                const res = await fetch(`/api/organizations/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name.trim() })
+                });
+
+                if (res.ok) {
+                    await loadOrganizationsForModal();
+                    await onDepartmentChange();
+                } else {
+                    const data = await res.json();
+                    alert(data.message || 'ไม่สามารถแก้ไขหน่วยงานได้');
+                }
+            } catch (err) { alert('เกิดข้อผิดพลาด'); }
+        }
+
+        async function deleteOrganization(id) {
+            if (!confirm('ยืนยันการลบหน่วยงานนี้?')) return;
+            try {
+                const res = await fetch(`/api/organizations/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    await loadOrganizationsForModal();
+                    await onDepartmentChange();
+                } else {
+                    const data = await res.json();
+                    alert(data.message || 'ไม่สามารถลบได้');
+                }
+            } catch (err) { alert('เกิดข้อผิดพลาด'); }
+        }
+
+        async function loadAttributes() {
+            try {
+                const res = await fetch('/api/equipment-attributes');
+                currentAttributes = await res.json();
+                renderAttributesOptions();
+            } catch (err) { 
+                console.error('Error loading attributes:', err); 
+            }
+        }
+
+        function renderAttributesOptions() {
+            let attrListHtml = '';
+            if (Array.isArray(currentAttributes) && currentAttributes.length > 0) {
+                currentAttributes.forEach((attr, idx) => {
+                    attrListHtml += `
+                        <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+                            <span>${escapeHtml(attr.name)}</span>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-secondary" onclick="moveAttribute(${idx}, 'up')" ${idx === 0 ? 'disabled' : ''}><i class="fa-solid fa-arrow-up"></i></button>
+                                <button class="btn btn-outline-secondary" onclick="moveAttribute(${idx}, 'down')" ${idx === currentAttributes.length - 1 ? 'disabled' : ''}><i class="fa-solid fa-arrow-down"></i></button>
+                                <button class="btn btn-outline-warning" onclick="editAttribute(${attr.id}, '${escapeHtml(attr.name)}')"><i class="fa-solid fa-pen-to-square"></i></button>
+                                <button class="btn btn-outline-danger" onclick="deleteAttribute(${attr.id})"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </li>`;
+                });
+            } else {
+                attrListHtml = '<li class="list-group-item text-center text-muted py-3">ยังไม่มีหัวข้อมาตรฐาน</li>';
+            }
+            document.getElementById('attribute-list').innerHTML = attrListHtml;
+        }
+
+        async function loadData() {
+            try {
+                const res = await fetch('/api/equipments');
+                const data = await res.json();
+
+                const isAdmin = String(currentUserRole).toLowerCase().trim() === 'admin';
+                if (!isAdmin) {
+                    globalEquipments = (Array.isArray(data) ? data : []).filter(e => canOperateEquipment(e));
+                } else {
+                    globalEquipments = Array.isArray(data) ? data : [];
+                }
+
+                populateFilterDepartments();
+                populateFilterOrganizations();
+                applyFilterAndSearch();
+            } catch (err) { 
+                console.error('Error loading data:', err); 
+            }
+        }
+
+        function populateFilterDepartments() {
+            const deptSelect = document.getElementById('filter-department');
+            if (!deptSelect) return;
+
+            const isAdmin = String(currentUserRole).toLowerCase().trim() === 'admin';
+            if (!isAdmin) {
+                const myDeptId = currentUserDeptId || '';
+                const myDeptName = currentUserDeptName || 'สังกัดตนเอง';
+                deptSelect.innerHTML = `<option value="${myDeptId}" selected>📍 ${escapeHtml(myDeptName)}</option>`;
+                deptSelect.disabled = true;
+                return;
+            }
+
+            let html = '<option value="all">📍 ทุกสังกัด</option>';
+            if (Array.isArray(currentDepartments)) {
+                currentDepartments.forEach(d => {
+                    html += `<option value="${d.id}">🏢 ${escapeHtml(d.name)}</option>`;
+                });
+            }
+            deptSelect.innerHTML = html;
+            deptSelect.disabled = false;
+        }
+
+        function populateFilterOrganizations() {
+            const orgSelect = document.getElementById('filter-organization');
+            if (!orgSelect) return;
+
+            const isAdmin = String(currentUserRole).toLowerCase().trim() === 'admin';
+            let targetDeptId = 'all';
+            if (!isAdmin) {
+                targetDeptId = String(currentUserDeptId || '');
+            } else {
+                targetDeptId = document.getElementById('filter-department')?.value || 'all';
+            }
+
+            let orgList = [];
+            globalEquipments.forEach(eq => {
+                const matchDept = targetDeptId === 'all' || 
+                                  String(eq.department_id) === String(targetDeptId) || 
+                                  String(eq.department_name || '').trim() === String(targetDeptId).trim();
+                if (matchDept) {
+                    const orgName = eq.organization_name || eq.organization || eq.sub_department_name;
+                    if (orgName && orgName !== '-' && !orgList.includes(orgName)) {
+                        orgList.push(orgName);
+                    }
+                }
+            });
+
+            let html = '<option value="all">🏢 ทุกหน่วยงาน</option>';
+            orgList.sort().forEach(name => {
+                html += `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`;
+            });
+            orgSelect.innerHTML = html;
+        }
+
+        function onDepartmentFilterChange() {
+            populateFilterOrganizations();
+            applyFilterAndSearch();
+        }
+
+        function onOrganizationFilterChange() {
+            applyFilterAndSearch();
+        }
+
+        function handleSearch() {
+            applyFilterAndSearch();
+        }
+
+        function applyFilterAndSearch() {
+            const keyword = document.getElementById('search-input')?.value.trim().toLowerCase() || '';
+            const selectedDept = document.getElementById('filter-department')?.value || 'all';
+            const selectedOrg = document.getElementById('filter-organization')?.value || 'all';
+            const isAdmin = String(currentUserRole).toLowerCase().trim() === 'admin';
+
+            filteredEquipments = globalEquipments.filter(eq => {
+                // 1. ตรวจสอบสิทธิ์สำหรับ Staff (ต้องเป็นสังกัดตนเอง)
+                if (!isAdmin && !canOperateEquipment(eq)) return false;
+
+                // 2. ตัวกรองสังกัด (Admin)
+                if (isAdmin && selectedDept !== 'all') {
+                    const matchDeptId = String(eq.department_id) === String(selectedDept);
+                    const matchDeptName = String(eq.department_name || '').trim() === String(selectedDept).trim();
+                    if (!matchDeptId && !matchDeptName) return false;
+                }
+
+                // 3. ตัวกรองหน่วยงาน
+                if (selectedOrg !== 'all') {
+                    const eqOrg = String(eq.organization_name || eq.organization || eq.sub_department_name || '').trim();
+                    const eqOrgId = String(eq.organization_id || '').trim();
+                    if (eqOrg !== selectedOrg && eqOrgId !== selectedOrg) return false;
+                }
+
+                // 4. ค้นหาข้อความ
+                if (!keyword) return true;
+                const computerName = (eq.computer_name || '').toLowerCase();
+                const userName = (eq.user_name || '').toLowerCase();
+                const position = (eq.position || '').toLowerCase();
+                const email = (eq.email || '').toLowerCase();
+                const phone = (eq.phone || '').toLowerCase();
+                const category = (eq.category_name || '').toLowerCase();
+                const department = (eq.department_name || '').toLowerCase();
+                const organization = (eq.organization_name || eq.sub_department_name || '').toLowerCase();
+                const status = (eq.status || '').toLowerCase();
+
+                return computerName.includes(keyword) || 
+                       userName.includes(keyword) || 
+                       position.includes(keyword) || 
+                       email.includes(keyword) || 
+                       phone.includes(keyword) || 
+                       category.includes(keyword) || 
+                       department.includes(keyword) || 
+                       organization.includes(keyword) || 
+                       status.includes(keyword);
+            });
+
+            currentPage = 1;
+            renderTable();
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('eq-table-body');
+            tbody.innerHTML = '';
+
+            if (!Array.isArray(filteredEquipments) || filteredEquipments.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">ไม่พบข้อมูลที่ตรงกับเงื่อนไขการค้นหา</td></tr>';
+                updatePaginationInfo(0, 0, 0);
+                renderPaginationButtons(0);
+                return;
+            }
+
+            const startIndex = (currentPage - 1) * rowsPerPage;
+            const endIndex = Math.min(startIndex + rowsPerPage, filteredEquipments.length);
+            const pageData = filteredEquipments.slice(startIndex, endIndex);
+
+            let html = '';
+            pageData.forEach((eq, index) => {
+                const rowNumber = startIndex + index + 1;
+                const orgDisplay = eq.organization_name || eq.organization || eq.sub_department_name || '-';
+                const isPermitted = canOperateEquipment(eq);
+
+                let actionBtns = `
+                    <button class="btn btn-sm btn-outline-info me-1" onclick="viewEquipmentDetails(${eq.id})" title="ดูรายละเอียด"><i class="fa-solid fa-eye"></i></button>
+                `;
+
+                if (isPermitted) {
+                    actionBtns += `
+                        <button class="btn btn-sm btn-outline-warning me-1" onclick="openEditModal(${eq.id})" title="แก้ไข"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteEquipment(${eq.id})" title="ลบ"><i class="fa-solid fa-trash"></i></button>
+                    `;
+                } else {
+                    actionBtns += `
+                        <button class="btn btn-sm btn-light text-muted me-1 border" disabled title="ไม่มีสิทธิ์แก้ไขครุภัณฑ์นอกสังกัด"><i class="fa-solid fa-lock"></i></button>
+                    `;
+                }
+
+                html += `<tr>
+                    <td class="text-center fw-semibold text-muted">${rowNumber}</td>
+                    <td><span class="fw-bold text-primary">${escapeHtml(eq.computer_name || '-')}</span></td>
+                    <td class="fw-medium">${escapeHtml(eq.user_name || '-')}</td>
+                    <td>${escapeHtml(eq.position || '-')}</td>
+                    <td>${escapeHtml(eq.category_name || '-')}</td>
+                    <td>${escapeHtml(eq.department_name || '-')}</td>
+                    <td>${escapeHtml(orgDisplay)}</td>
+                    <td>${getStatusBadge(eq.status)}</td>
+                    <td class="text-muted small">${eq.last_audited_at ? new Date(eq.last_audited_at).toLocaleDateString('th-TH') : 'ยังไม่เคยสำรวจ'}</td>
+                    <td class="text-center">${actionBtns}</td>
+                </tr>`;
+            });
+
+            tbody.innerHTML = html;
+            updatePaginationInfo(startIndex + 1, endIndex, filteredEquipments.length);
+            renderPaginationButtons(Math.ceil(filteredEquipments.length / rowsPerPage));
+        }
+
+        function renderPaginationButtons(totalPages) {
+            const container = document.getElementById('pagination-container');
+            container.innerHTML = '';
+
+            if (totalPages <= 1) return;
+
+            const prevDisabled = currentPage === 1 ? 'disabled' : '';
+            container.insertAdjacentHTML('beforeend', `
+                <li class="page-item ${prevDisabled}">
+                    <button class="page-link" onclick="changePage(${currentPage - 1})">Previous</button>
+                </li>
+            `);
+
+            for (let i = 1; i <= totalPages; i++) {
+                const activeClass = i === currentPage ? 'active' : '';
+                container.insertAdjacentHTML('beforeend', `
+                    <li class="page-item ${activeClass}">
+                        <button class="page-link" onclick="changePage(${i})">${i}</button>
+                    </li>
+                `);
+            }
+
+            const nextDisabled = currentPage === totalPages ? 'disabled' : '';
+            container.insertAdjacentHTML('beforeend', `
+                <li class="page-item ${nextDisabled}">
+                    <button class="page-link" onclick="changePage(${currentPage + 1})">Next</button>
+                </li>
+            `);
+        }
+
+        function changePage(newPage) {
+            const totalPages = Math.ceil(filteredEquipments.length / rowsPerPage);
+            if (newPage < 1 || newPage > totalPages) return;
+            currentPage = newPage;
+            renderTable();
+        }
+
+        function updatePaginationInfo(start, end, total) {
+            document.getElementById('page-info').textContent = 
+                `กำลังแสดงรายการ ${start} ถึง ${end} จากทั้งหมด ${total} รายการ`;
+        }
+
+        function addDetailRow(title = '', value = '') {
+            const container = document.getElementById('detail-list-container');
+            const rowId = 'detail-row-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4);
+
+            let options = '<option value="">-- พิมพ์เอง หรือ เลือกหัวข้อ --</option>';
+            if (Array.isArray(currentAttributes)) {
+                currentAttributes.forEach(attr => {
+                    const selected = attr.name === title ? 'selected' : '';
+                    options += `<option value="${escapeHtml(attr.name)}" ${selected}>${escapeHtml(attr.name)}</option>`;
+                });
+            }
+
+            const rowHtml = `
+                <div class="row g-2 mb-2 align-items-center detail-item-row" id="${rowId}">
+                    <div class="col-5">
+                        <div class="input-group input-group-sm">
+                            <input type="text" class="form-control detail-title" placeholder="พิมพ์ชื่อหัวข้อ..." value="${escapeHtml(title)}">
+                            <select class="form-select text-secondary" style="max-width: 130px;" onchange="selectPresetTitle(this)">
+                                ${options}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <input type="text" class="form-control form-control-sm detail-value" placeholder="รายละเอียด/สเปก" value="${escapeHtml(value)}">
+                    </div>
+                    <div class="col-1 text-end">
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeDetailRow('${rowId}')">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', rowHtml);
+        }
+
+        function selectPresetTitle(selectEl) {
+            if (selectEl.value) {
+                const input = selectEl.closest('.input-group').querySelector('.detail-title');
+                input.value = selectEl.value;
+            }
+        }
+
+        function removeDetailRow(rowId) {
+            const row = document.getElementById(rowId);
+            if (row) row.remove();
+        }
+
+        function getDetailListData() {
+            const rows = document.querySelectorAll('.detail-item-row');
+            const details = [];
+            rows.forEach(row => {
+                const title = row.querySelector('.detail-title').value.trim();
+                const value = row.querySelector('.detail-value').value.trim();
+                if (title || value) details.push({ title, value });
+            });
+            return details;
+        }
+
+        function clearDetailList() {
+            document.getElementById('detail-list-container').innerHTML = '';
+        }
+
+        function populateDetailList(details) {
+            clearDetailList();
+            
+            if (typeof details === 'string') {
+                try { details = JSON.parse(details); } catch (e) { details = []; }
+            }
+            
+            if (Array.isArray(details) && details.length > 0) {
+                details.forEach(item => {
+                    const titleVal = item.title || item.label || item.name || '';
+                    const valueVal = item.value || '';
+                    addDetailRow(titleVal, valueVal);
+                });
+            } else {
+                addDetailRow();
+            }
+        }
+
+        function openAddModal() {
+            editingEquipmentId = null;
+            document.getElementById('add-eq-form').reset();
+            document.getElementById('modal-title-text').innerHTML = '<i class="fa-solid fa-plus me-1"></i> เพิ่มครุภัณฑ์ใหม่';
+            document.getElementById('modal-header-bg').className = 'modal-header bg-primary text-white';
+            document.getElementById('btn-save-eq').className = 'btn btn-primary px-4';
+            document.getElementById('status-field-container').style.display = 'none';
+
+            const deptSelect = document.getElementById('eq-department');
+            if (currentUserRole !== 'Admin' && currentUserDeptId) {
+                deptSelect.value = currentUserDeptId;
+                deptSelect.disabled = true;
+                onDepartmentChange();
+            } else {
+                deptSelect.disabled = false;
+                document.getElementById('eq-organization').innerHTML = '<option value="">-- กรุณาเลือกสังกัดก่อน --</option>';
+                document.getElementById('eq-organization').disabled = true;
+            }
+
+            clearDetailList();
+            addDetailRow();
+            applyRolePermissions();
+            new bootstrap.Modal(document.getElementById('addModal')).show();
+        }
+
+        async function openEditModal(id) {
+            try {
+                const res = await fetch(`/api/equipments/${id}`);
+                if (!res.ok) throw new Error('ไม่สามารถดึงข้อมูลได้');
+                const eq = await res.json();
+
+                // ตรวจสอบสิทธิ์: Staff แก้ไขได้เฉพาะสังกัดตนเองเท่านั้น
+                if (!canOperateEquipment(eq)) {
+                    alert('คุณไม่มีสิทธิ์แก้ไขข้อมูลครุภัณฑ์นอกสังกัดตนเอง');
+                    return;
+                }
+
+                editingEquipmentId = id;
+                document.getElementById('eq-computer-name').value = eq.computer_name || '';
+                document.getElementById('eq-user-name').value = eq.user_name || '';
+                document.getElementById('eq-position').value = eq.position || '';
+                document.getElementById('eq-email').value = eq.email || '';
+                document.getElementById('eq-phone').value = eq.phone || '';
+                document.getElementById('eq-category').value = eq.category_id || '';
+
+                const deptSelect = document.getElementById('eq-department');
+                deptSelect.value = eq.department_id || '';
+
+                const isAdmin = String(currentUserRole).toLowerCase().trim() === 'admin';
+                if (!isAdmin && currentUserDeptId) {
+                    deptSelect.value = currentUserDeptId;
+                    deptSelect.disabled = true;
+                } else {
+                    deptSelect.disabled = false;
+                }
+
+                const orgIdToSelect = eq.organization_id || eq.sub_department_id || null;
+                await onDepartmentChange(orgIdToSelect);
+
+                document.getElementById('eq-status').value = eq.status || 'ใช้งานปกติ';
+
+                document.getElementById('modal-title-text').innerHTML = '<i class="fa-solid fa-pen-to-square me-1"></i> แก้ไขข้อมูลครุภัณฑ์';
+                document.getElementById('modal-header-bg').className = 'modal-header bg-warning text-dark';
+                document.getElementById('btn-save-eq').className = 'btn btn-warning px-4';
+                document.getElementById('status-field-container').style.display = 'block';
+
+                populateDetailList(eq.details);
+                applyRolePermissions();
+                new bootstrap.Modal(document.getElementById('addModal')).show();
+            } catch (err) {
+                alert('เกิดข้อผิดพลาดในการโหลดข้อมูลเพื่อแก้ไข');
+            }
+        }
+
+        async function saveEquipment() {
+            const computer_name = document.getElementById('eq-computer-name').value.trim();
+            if (!computer_name) return alert('กรุณากรอกชื่อเครื่อง');
+
+            const orgSelect = document.getElementById('eq-organization');
+            const orgValue = orgSelect && !orgSelect.disabled ? orgSelect.value : null;
+
+            const isAdmin = String(currentUserRole).toLowerCase().trim() === 'admin';
+            let deptIdValue = document.getElementById('eq-department').value ? Number(document.getElementById('eq-department').value) : null;
+            if (!isAdmin && currentUserDeptId) {
+                deptIdValue = Number(currentUserDeptId);
+            }
+
+            const payload = {
+                computer_name: computer_name,
+                user_name: document.getElementById('eq-user-name').value.trim(),
+                position: document.getElementById('eq-position').value.trim(),
+                email: document.getElementById('eq-email').value.trim(),
+                phone: document.getElementById('eq-phone').value.trim(),
+                category_id: document.getElementById('eq-category').value ? Number(document.getElementById('eq-category').value) : null,
+                department_id: deptIdValue,
+                organization_id: orgValue ? Number(orgValue) : null,
+                sub_department_id: orgValue ? Number(orgValue) : null,
+                status: document.getElementById('eq-status')?.value || 'ใช้งานปกติ',
+                details: getDetailListData()
+            };
+
+            const isEdit = Boolean(editingEquipmentId);
+            const url = isEdit ? `/api/equipments/${editingEquipmentId}` : '/api/equipments';
+            const method = isEdit ? 'PUT' : 'POST'; 
+
+            try {
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    alert('บันทึกข้อมูลสำเร็จ');
+                    const modalEl = document.getElementById('addModal');
+                    bootstrap.Modal.getInstance(modalEl)?.hide();
+                    await loadData();
+                } else {
+                    const err = await res.json();
+                    alert('เกิดข้อผิดพลาด: ' + (err.message || 'ไม่สามารถบันทึกได้'));
+                }
+            } catch (err) { 
+                alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์'); 
+            }
+        }
+
+        async function deleteEquipment(id) {
+            const target = globalEquipments.find(e => e.id == id);
+            if (target && !canOperateEquipment(target)) {
+                alert('คุณไม่มีสิทธิ์ลบข้อมูลครุภัณฑ์นอกสังกัดตนเอง');
+                return;
+            }
+
+            if (!confirm(`ยืนยันการลบรายการครุภัณฑ์ ใช่หรือไม่?`)) return;
+            try {
+                const res = await fetch(`/api/equipments/${id}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (res.ok) {
+                    alert(data.message || 'ลบข้อมูลสำเร็จ');
+                    loadData();
+                } else {
+                    alert('ไม่สามารถลบได้: ' + (data.message || 'เกิดข้อผิดพลาด'));
+                }
+            } catch (err) { 
+                alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์'); 
+            }
+        }
+
+        async function viewEquipmentDetails(equipmentId) {
+            try {
+                const response = await fetch(`/api/equipments/${equipmentId}`);
+                if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลได้');
+                
+                const data = await response.json();
+
+                document.getElementById('view-eq-computer-name').textContent = data.computer_name || '-';
+                document.getElementById('view-eq-user-name').textContent = data.user_name || '-';
+                document.getElementById('view-eq-position').textContent = data.position || '-';
+                document.getElementById('view-eq-email').textContent = data.email || '-';
+                document.getElementById('view-eq-phone').textContent = data.phone || '-';
+                document.getElementById('view-eq-category').textContent = data.category_name || '-';
+                document.getElementById('view-eq-department').textContent = data.department_name || '-';
+                document.getElementById('view-eq-organization').textContent = data.organization_name || data.organization || data.sub_department_name || '-';
+                
+                document.getElementById('view-eq-status').innerHTML = getStatusBadge(data.status);
+
+                const repairLink = document.getElementById('view-eq-repair-link');
+                const computerName = data.computer_name || '';
+                repairLink.href = `repair.html?code=${encodeURIComponent(computerName)}`;
+
+                const qrEl = document.getElementById('view-eq-qrcode');
+                if (data.qr_code) {
+                    qrEl.src = data.qr_code;
+                    qrEl.style.display = 'block';
+                } else {
+                    qrEl.style.display = 'none';
+                }
+
+                const tbody = document.getElementById('view-details-tbody');
+                tbody.innerHTML = '';
+
+                let detailsList = data.details;
+                if (typeof detailsList === 'string') {
+                    try { detailsList = JSON.parse(detailsList); } catch (e) { detailsList = []; }
+                }
+
+                if (Array.isArray(detailsList) && detailsList.length > 0) {
+                    let hasData = false;
+                    detailsList.forEach(item => {
+                        const title = item.title || item.label || item.name || '';
+                        const val = item.value || '';
+                        
+                        if (title || val) {
+                            hasData = true;
+                            tbody.insertAdjacentHTML('beforeend', `
+                                <tr>
+                                    <td class="fw-bold bg-light-subtle">${escapeHtml(title || '-')}</td>
+                                    <td>${escapeHtml(val || '-')}</td>
+                                </tr>
+                            `);
+                        }
+                    });
+
+                    if (!hasData) {
+                        tbody.innerHTML = '<tr><td colspan="2" class="text-center text-muted py-3">ไม่มีข้อมูลคุณลักษณะเพิ่มเติม</td></tr>';
+                    }
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="2" class="text-center text-muted py-3">ไม่มีข้อมูลคุณลักษณะเพิ่มเติม</td></tr>';
+                }
+
+                new bootstrap.Modal(document.getElementById('viewEquipmentModal')).show();
+            } catch (error) { 
+                console.error('View Details Error:', error);
+                alert('เกิดข้อผิดพลาดในการโหลดข้อมูลรายละเอียด'); 
+            }
+        }
+
+        async function submitCategory(e) {
+            e.preventDefault();
+            const input = document.getElementById('cat-name-input');
+            const name = input.value.trim();
+            if (!name) return alert('กรุณากรอกชื่อหมวดหมู่');
+
+            try {
+                const res = await fetch('/api/categories', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+                if (res.ok) {
+                    input.value = '';
+                    await loadOptions();
+                }
+            } catch (err) { alert('เกิดข้อผิดพลาด'); }
+        }
+
+        async function moveCategory(index, direction) {
+            const newIndex = direction === 'up' ? index - 1 : index + 1;
+            if (newIndex < 0 || newIndex >= currentCategories.length) return;
+
+            const temp = currentCategories[index];
+            currentCategories[index] = currentCategories[newIndex];
+            currentCategories[newIndex] = temp;
+
+            renderCategoriesOptions();
+
+            const payload = currentCategories.map((item, idx) => ({ id: item.id, sort_order: idx + 1 }));
+
+            try {
+                const res = await fetch('/api/categories/reorder', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items: payload })
+                });
+
+                if (!res.ok) {
+                    alert('ไม่สามารถอัปเดตลำดับหมวดหมู่ได้');
+                    await loadOptions();
+                }
+            } catch (err) { 
+                alert('เกิดข้อผิดพลาดในการเปลี่ยนลำดับ'); 
+                await loadOptions();
+            }
+        }
+
+        async function editCategory(id, currentName) {
+            const name = prompt('แก้ไขชื่อหมวดหมู่:', currentName);
+            if (!name || name.trim() === currentName) return;
+            try {
+                const res = await fetch(`/api/categories/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name.trim() })
+                });
+                if (res.ok) await loadOptions();
+            } catch (err) { alert('เกิดข้อผิดพลาด'); }
+        }
+
+        async function deleteCategory(id) {
+            if (!confirm('ยืนยันการลบหมวดหมู่นี้?')) return;
+            try {
+                const res = await fetch(`/api/categories/${id}`, { method: 'DELETE' });
+                if (!res.ok) {
+                    const data = await res.json();
+                    alert(data.message || 'ไม่สามารถลบได้');
+                }
+                await loadOptions();
+            } catch (err) { alert('เกิดข้อผิดพลาด'); }
+        }
+
+        async function submitDepartment(e) {
+            e.preventDefault();
+            const input = document.getElementById('dept-name-input');
+            const name = input.value.trim();
+            if (!name) return alert('กรุณากรอกชื่อสังกัด');
+
+            try {
+                const res = await fetch('/api/departments', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+                if (res.ok) {
+                    input.value = '';
+                    await loadOptions();
+                } else {
+                    const data = await res.json();
+                    alert(data.message || 'ไม่สามารถเพิ่มสังกัดได้');
+                }
+            } catch (err) { alert('เกิดข้อผิดพลาด'); }
+        }
+
+        async function moveDepartment(index, direction) {
+            const newIndex = direction === 'up' ? index - 1 : index + 1;
+            if (newIndex < 0 || newIndex >= currentDepartments.length) return;
+
+            const temp = currentDepartments[index];
+            currentDepartments[index] = currentDepartments[newIndex];
+            currentDepartments[newIndex] = temp;
+
+            renderDepartmentsOptions();
+
+            const payload = currentDepartments.map((item, idx) => ({ id: item.id, sort_order: idx + 1 }));
+
+            try {
+                const res = await fetch('/api/departments/reorder', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items: payload })
+                });
+
+                if (!res.ok) {
+                    alert('ไม่สามารถอัปเดตลำดับสังกัดได้');
+                    await loadOptions();
+                }
+            } catch (err) { 
+                alert('เกิดข้อผิดพลาดในการเปลี่ยนลำดับ'); 
+                await loadOptions();
+            }
+        }
+
+        async function editDepartment(id, currentName) {
+            const name = prompt('แก้ไขชื่อสังกัด:', currentName);
+            if (!name || name.trim() === currentName) return;
+
+            try {
+                const res = await fetch(`/api/departments/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name.trim() })
+                });
+                if (res.ok) {
+                    await loadOptions();
+                } else {
+                    const data = await res.json();
+                    alert(data.message || 'ไม่สามารถแก้ไขสังกัดได้');
+                }
+            } catch (err) { alert('เกิดข้อผิดพลาด'); }
+        }
+
+        async function deleteDepartment(id) {
+            if (!confirm('ยืนยันการลบสังกัดนี้?')) return;
+            try {
+                const res = await fetch(`/api/departments/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    await loadOptions();
+                } else {
+                    const data = await res.json();
+                    alert(data.message || 'ไม่สามารถลบได้');
+                }
+            } catch (err) { alert('เกิดข้อผิดพลาด'); }
+        }
+
+        async function addAttribute() {
+            const input = document.getElementById('new-attr-name');
+            const name = input.value.trim();
+            if (!name) return alert('กรุณากรอกชื่อหัวข้อ');
+
+            try {
+                const res = await fetch('/api/equipment-attributes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+                if (res.ok) {
+                    input.value = '';
+                    await loadAttributes();
+                }
+            } catch (err) { alert('เกิดข้อผิดพลาด'); }
+        }
+
+        async function moveAttribute(index, direction) {
+            const newIndex = direction === 'up' ? index - 1 : index + 1;
+            if (newIndex < 0 || newIndex >= currentAttributes.length) return;
+
+            const temp = currentAttributes[index];
+            currentAttributes[index] = currentAttributes[newIndex];
+            currentAttributes[newIndex] = temp;
+
+            renderAttributesOptions();
+
+            const payload = currentAttributes.map((item, idx) => ({ id: item.id, sort_order: idx + 1 }));
+
+            try {
+                const res = await fetch('/api/equipment-attributes/reorder', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items: payload })
+                });
+                if (!res.ok) {
+                    alert('ไม่สามารถอัปเดตลำดับหัวข้อได้');
+                    await loadAttributes();
+                }
+            } catch (err) { 
+                alert('เกิดข้อผิดพลาดในการเปลี่ยนลำดับ'); 
+                await loadAttributes();
+            }
+        }
+
+        async function editAttribute(id, currentName) {
+            const name = prompt('แก้ไขชื่อหัวข้อ:', currentName);
+            if (!name || name.trim() === currentName) return;
+            try {
+                const res = await fetch(`/api/equipment-attributes/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name.trim() })
+                });
+                if (res.ok) await loadAttributes();
+            } catch (err) { alert('เกิดข้อผิดพลาด'); }
+        }
+
+        async function deleteAttribute(id) {
+            if (!confirm('ยืนยันการลบหัวข้อนี้?')) return;
+            try {
+                const res = await fetch(`/api/equipment-attributes/${id}`, { method: 'DELETE' });
+                if (!res.ok) {
+                    const data = await res.json();
+                    alert(data.message || 'ไม่สามารถลบได้');
+                }
+                await loadAttributes();
+            } catch (err) { alert('เกิดข้อผิดพลาด'); }
+        }
+
+        function getStatusBadge(status) {
+            switch (status) {
+                case 'ใช้งานปกติ': return `<span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-2">${status}</span>`;
+                case 'ส่งซ่อม': return `<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-3 py-2">${status}</span>`;
+                case 'จำหน่าย': return `<span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-3 py-2">${status}</span>`;
+                default: return `<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill px-3 py-2">${status || 'ไม่ระบุ'}</span>`;
+            }
+        }
+
+        function checkAutoOpenModal() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('openAdd') === 'true') openAddModal();
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return String(text)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function downloadExcel() {
+            const isAdmin = String(currentUserRole).toLowerCase().trim() === 'admin';
+            let url = '/api/reports/export/excel';
+            if (!isAdmin) {
+                url += `?department_id=${encodeURIComponent(currentUserDeptId || currentUserDeptName || '')}`;
+            } else {
+                const selectedDept = document.getElementById('filter-department')?.value;
+                if (selectedDept && selectedDept !== 'all') {
+                    url += `?department_id=${encodeURIComponent(selectedDept)}`;
+                }
+            }
+            window.location.href = url;
+        }
+    </script>
+</body>
+</html>

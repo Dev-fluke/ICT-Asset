@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>พิมพ์ QR Code - ระบบบริหารจัดการครุภัณฑ์</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font: Prompt -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+      <!-- เรียกใช้งานไฟล์ CSS ของเราที่นี่ -->
+    <link rel="stylesheet" href="/styles.css">
+           <!-- 🔒 ดึงไฟล์ Auth Guard มาทำงานก่อนใครเพื่อน -->
+    <script src="../auth-guard.js"></script>
+     <!-- ออกจากระบบ -->
+    <script src="../global-app.js"></script> 
+    <style>
+
+        /* สไตล์ QR Grid และ QR Card ตามโค้ดตัวอย่าง */
+        .qr-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 16px;
+            padding: 10px 0;
+        }
+
+        .qr-card {
+            border: 1px dashed #cbd5e1;
+            border-radius: 10px;
+            padding: 12px;
+            background: #fff;
+            text-align: center;
+            page-break-inside: avoid;
+            font-size: 11px;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .qr-card:hover {
+            border-color: #0d6efd;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        .qr-card img {
+            max-width: 120px;
+            height: 120px;
+            object-fit: contain;
+            margin: 6px 0;
+        }
+
+        /* โหมดพิมพ์ (Print CSS) */
+        @media print {
+            .no-print, #sidebar-placeholder, #header-placeholder { display: none !important; }
+            body { background: #fff !important; padding: 0 !important; margin: 0 !important; }
+            #app-container, .main-content, .card-custom { padding: 0 !important; margin: 0 !important; background: transparent !important; box-shadow: none !important; }
+            .qr-grid {
+                display: grid !important;
+                grid-template-columns: repeat(4, 1fr) !important;
+                gap: 10px !important;
+            }
+            .qr-card {
+                border: 1px solid #000 !important;
+                box-shadow: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app-container">
+        <!-- Sidebar Layout แบบเดียวกับ equipments.html -->
+        <div id="sidebar-placeholder"></div>
+        <script>if (window.renderCachedSidebar) renderCachedSidebar();</script>
+
+        <!-- Main Content -->
+        <div class="main-content flex-grow-1 p-4">
+            <div id="header-placeholder"></div>
+
+            <div class="card card-custom p-4">
+                <!-- แผงควบคุมและฟิลเตอร์ค้นหา -->
+                <div class="no-print border-bottom pb-3 mb-4">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
+                        <div>
+                            <h5 class="fw-bold m-0 text-primary">
+                                <i class="fa-solid fa-qrcode me-2"></i>พิมพ์ QR Code สำหรับติดครุภัณฑ์
+                            </h5>
+                            <div id="role-scope-badge" class="mt-1 small"></div>
+                        </div>
+                        <button class="btn btn-primary btn-sm px-3 rounded-pill fw-bold shadow-sm" onclick="window.print()">
+                            <i class="fa-solid fa-print me-1"></i> สั่งพิมพ์ / Save PDF
+                        </button>
+                    </div>
+
+                    <div class="row g-2 align-items-end bg-light p-3 rounded border">
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold small text-muted mb-1">หมวดหมู่</label>
+                            <select id="filter-category" class="form-select form-select-sm" onchange="applyFilters()">
+                                <option value="">-- ทุกหมวดหมู่ --</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold small text-muted mb-1">สังกัด</label>
+                            <select id="filter-department" class="form-select form-select-sm" onchange="onDepartmentChange()">
+                                <option value="">-- ทุกสังกัด --</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold small text-muted mb-1">หน่วยงาน</label>
+                            <select id="filter-organization" class="form-select form-select-sm" onchange="applyFilters()">
+                                <option value="">-- ทุกหน่วยงาน --</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold small text-muted mb-1">ค้นหาชื่อเครื่อง</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-white"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                                <input type="text" id="filter-search" class="form-control" placeholder="พิมพ์ชื่อเครื่อง..." onkeyup="applyFilters()">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center mt-3 pt-2">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="select-all" checked onchange="toggleSelectAll(this)">
+                            <label class="form-check-label small fw-bold" for="select-all">เลือกทั้งหมดในหน้านี้</label>
+                        </div>
+                        <div class="small fw-bold text-primary" id="selected-count">เลือกอยู่ 0 รายการ</div>
+                    </div>
+                </div>
+
+                <!-- รายการ QR Cards -->
+                <div class="qr-grid" id="qr-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let allEquipments = [];
+        let currentUserRole = 'Staff';
+        let currentUserDeptId = null;
+        let currentUserDeptName = '';
+        let isAdmin = false;
+
+        window.onload = async function() {
+            initUserRole();
+            await loadLayout();
+            await Promise.all([loadOptions(), loadEquipments()]);
+        };
+
+        async function loadLayout() {
+            try {
+                await initSidebar('qrcode.html');
+            } catch(e) { 
+                console.error('Layout error:', e); 
+            }
+        }
+
+        function initUserRole() {
+            try {
+                const storedUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+                const roleRaw = String(storedUser.role || 'staff').toLowerCase().trim();
+                isAdmin = roleRaw === 'admin';
+                currentUserRole = isAdmin ? 'Admin' : 'Staff';
+                currentUserDeptId = storedUser.department_id || null;
+                currentUserDeptName = storedUser.department_name || '';
+            } catch (e) {}
+
+            const badgeEl = document.getElementById('role-scope-badge');
+            if (badgeEl) {
+                if (isAdmin) {
+                    badgeEl.innerHTML = `<span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1 rounded-pill"><i class="fa-solid fa-user-shield me-1"></i>สิทธิ์ Admin: แสดงและสั่งพิมพ์ QR Code ได้ทุกสังกัด</span>`;
+                } else {
+                    const myDept = currentUserDeptName || 'สังกัดตนเอง';
+                    badgeEl.innerHTML = `<span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1 rounded-pill"><i class="fa-solid fa-building-user me-1"></i>สิทธิ์ Staff: แสดงและสั่งพิมพ์เฉพาะสังกัด <strong>${escapeHtml(myDept)}</strong></span>`;
+                }
+            }
+        }
+
+        function canOperateEquipment(eq) {
+            if (isAdmin) return true;
+            const matchId = currentUserDeptId && String(getDeptId(eq)) === String(currentUserDeptId);
+            const matchName = currentUserDeptName && String(getDeptName(eq)).trim().toLowerCase() === String(currentUserDeptName).trim().toLowerCase();
+            return matchId || matchName;
+        }
+
+        function getDeptId(eq) {
+            return eq.department_id || (eq.department ? eq.department.id : '');
+        }
+
+        function getDeptName(eq) {
+            return eq.department_name || (eq.department ? eq.department.name : '');
+        }
+
+        function getOrgName(eq) {
+            return eq.organization_name || (eq.organization ? eq.organization.name : '');
+        }
+
+        function getCatId(eq) {
+            return eq.category_id || (eq.category ? eq.category.id : '');
+        }
+
+        async function loadOptions() {
+            try {
+                const [resCat, resDept] = await Promise.all([
+                    fetch('/api/categories'),
+                    fetch('/api/departments')
+                ]);
+                const cats = await resCat.json();
+                const depts = await resDept.json();
+
+                let catHtml = '<option value="">-- ทุกหมวดหมู่ --</option>';
+                cats.forEach(c => catHtml += `<option value="${c.id}">${escapeHtml(c.name)}</option>`);
+                document.getElementById('filter-category').innerHTML = catHtml;
+
+                const deptSelect = document.getElementById('filter-department');
+                if (!isAdmin) {
+                    const myDeptId = currentUserDeptId || '';
+                    const myDeptName = currentUserDeptName || 'สังกัดตนเอง';
+                    deptSelect.innerHTML = `<option value="${myDeptId}" selected>📍 ${escapeHtml(myDeptName)}</option>`;
+                    deptSelect.disabled = true;
+                } else {
+                    let deptHtml = '<option value="">-- ทุกสังกัด --</option>';
+                    depts.forEach(d => deptHtml += `<option value="${d.id}">${escapeHtml(d.name)}</option>`);
+                    deptSelect.innerHTML = deptHtml;
+                    deptSelect.disabled = false;
+                }
+            } catch (e) { 
+                console.error('Error loading options:', e); 
+            }
+        }
+
+        async function loadEquipments() {
+            try {
+                const res = await fetch('/api/equipments');
+                const rawData = await res.json();
+
+                if (!isAdmin) {
+                    allEquipments = (Array.isArray(rawData) ? rawData : []).filter(eq => canOperateEquipment(eq));
+                } else {
+                    allEquipments = Array.isArray(rawData) ? rawData : [];
+                }
+
+                populateOrganizations();
+                applyFilters();
+            } catch (e) { 
+                console.error('Error loading equipments:', e); 
+            }
+        }
+
+        function populateOrganizations() {
+            const selectedDeptId = document.getElementById('filter-department')?.value;
+            const orgSelect = document.getElementById('filter-organization');
+            if (!orgSelect) return;
+            
+            let filteredEquipments = allEquipments;
+            if (isAdmin && selectedDeptId) {
+                filteredEquipments = allEquipments.filter(eq => String(getDeptId(eq)) === String(selectedDeptId));
+            }
+
+            const orgs = [...new Set(filteredEquipments
+                .map(eq => getOrgName(eq))
+                .filter(org => org && String(org).trim() !== '' && org !== '-')
+            )];
+
+            let orgHtml = '<option value="">-- ทุกหน่วยงาน --</option>';
+            orgs.sort().forEach(org => {
+                orgHtml += `<option value="${escapeHtml(org)}">${escapeHtml(org)}</option>`;
+            });
+            orgSelect.innerHTML = orgHtml;
+        }
+
+        function onDepartmentChange() {
+            populateOrganizations();
+            applyFilters();
+        }
+
+        function renderQRCards(items) {
+            const container = document.getElementById('qr-container');
+            container.innerHTML = '';
+
+            if (!items || items.length === 0) {
+                container.innerHTML = '<div class="text-center text-muted w-100 py-5"><i class="fa-solid fa-folder-open display-6 d-block mb-2"></i>ไม่พบข้อมูลครุภัณฑ์ที่ระบุ</div>';
+                updateCount();
+                return;
+            }
+
+            items.forEach((eq) => {
+                const qrSrc = eq.qr_code || `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(eq.computer_name || '')}`;
+                
+                const deptText = getDeptName(eq);
+                const orgText = getOrgName(eq);
+                
+                let deptOrgLabel = '-';
+                if (deptText && orgText) {
+                    deptOrgLabel = `${escapeHtml(deptText)} (${escapeHtml(orgText)})`;
+                } else if (deptText) {
+                    deptOrgLabel = escapeHtml(deptText);
+                } else if (orgText) {
+                    deptOrgLabel = escapeHtml(orgText);
+                }
+
+                const card = document.createElement('div');
+                card.className = 'qr-card shadow-sm';
+                card.id = `card-${eq.id}`;
+                card.innerHTML = `
+                    <div class="no-print text-start mb-1">
+                        <input type="checkbox" class="form-check-input item-checkbox" value="${eq.id}" checked onchange="updateCount()">
+                    </div>
+                    <div class="fw-bold text-truncate text-primary" style="font-size: 12px;" title="${escapeHtml(eq.computer_name)}">
+                        ${escapeHtml(eq.computer_name)}
+                    </div>
+                    <img src="${qrSrc}" alt="QR Code">
+                    <div class="text-truncate text-muted" style="font-size: 10px;" title="${deptOrgLabel}">
+                        ${deptOrgLabel}
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            updateCount();
+        }
+
+        function applyFilters() {
+            const catId = document.getElementById('filter-category').value;
+            const deptId = document.getElementById('filter-department').value;
+            const orgName = document.getElementById('filter-organization').value;
+            const search = document.getElementById('filter-search').value.toLowerCase().trim();
+
+            const filtered = allEquipments.filter(eq => {
+                // 1. ตรวจสอบสิทธิ์สังกัดสำหรับ Staff
+                if (!isAdmin && !canOperateEquipment(eq)) return false;
+
+                // 2. ตัวกรอง
+                const matchCat = !catId || String(getCatId(eq)) === String(catId);
+                const matchDept = isAdmin ? (!deptId || String(getDeptId(eq)) === String(deptId)) : true;
+                const matchOrg = !orgName || getOrgName(eq) === orgName;
+                const matchSearch = !search || 
+                    (eq.computer_name && eq.computer_name.toLowerCase().includes(search)) ||
+                    (eq.user_name && eq.user_name.toLowerCase().includes(search));
+                return matchCat && matchDept && matchOrg && matchSearch;
+            });
+
+            renderQRCards(filtered);
+        }
+
+        function toggleSelectAll(master) {
+            document.querySelectorAll('.item-checkbox').forEach(cb => {
+                cb.checked = master.checked;
+            });
+            updateCount();
+        }
+
+        function updateCount() {
+            const checkboxes = document.querySelectorAll('.item-checkbox');
+            let checkedCount = 0;
+            checkboxes.forEach(cb => {
+                const card = document.getElementById(`card-${cb.value}`);
+                if (cb.checked) {
+                    checkedCount++;
+                    if (card) card.classList.remove('d-none');
+                } else {
+                    if (card) card.classList.add('d-none');
+                }
+            });
+            document.getElementById('selected-count').textContent = `เลือกอยู่ ${checkedCount} รายการ`;
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - ระบบบริหารจัดการครุภัณฑ์สารสนเทศ</title>
+    
+    <!-- ป้องกันการจำ Cache ระดับ HTTP Meta -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font: Prompt -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- เรียกใช้งานไฟล์ CSS กลาง -->
+    <link rel="stylesheet" href="/styles.css">
+    <!-- 🔒 Auth Guard & Global App -->
+    <script src="../auth-guard.js"></script>
+    <script src="../global-app.js"></script>
+
+    <!-- ธีมศูนย์ปฏิบัติการเทคโนโลยีสารสนเทศ (Enterprise IT Operations & Command Center) -->
+    <style>
+        :root {
+            --it-navy-900: #0b132b;
+            --it-navy-800: #1c2541;
+            --it-navy-700: #1e293b;
+            --it-blue-600: #2563eb;
+            --it-blue-500: #3b82f6;
+            --it-cyan-500: #06b6d4;
+            --it-emerald: #10b981;
+            --it-amber: #f59e0b;
+            --it-rose: #ef4444;
+            --it-slate: #64748b;
+            --it-card-border: rgba(226, 232, 240, 0.85);
+            --it-bg: #f8fafc;
+        }
+
+        body {
+            font-family: 'Prompt', sans-serif;
+            background-color: var(--it-bg);
+            color: #334155;
+            overflow-x: hidden;
+        }
+
+        /* 1. IT Operations Hero Card */
+        .it-hero-card {
+            background: linear-gradient(135deg, #0b132b 0%, #1c2541 45%, #1e3a8a 100%);
+            border-radius: 20px;
+            padding: 2rem 2.25rem;
+            color: #ffffff;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 16px 36px -10px rgba(11, 19, 43, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .it-hero-card::before {
+            content: '';
+            position: absolute;
+            top: -60px;
+            right: -60px;
+            width: 260px;
+            height: 260px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(6, 182, 212, 0.25) 0%, rgba(6, 182, 212, 0) 70%);
+            pointer-events: none;
+        }
+
+        .it-hero-card::after {
+            content: '';
+            position: absolute;
+            bottom: -80px;
+            left: 20%;
+            width: 320px;
+            height: 180px;
+            background: radial-gradient(ellipse, rgba(37, 99, 235, 0.25) 0%, rgba(37, 99, 235, 0) 70%);
+            pointer-events: none;
+        }
+
+        /* Live Pulse Dot */
+        .pulse-live {
+            width: 9px;
+            height: 9px;
+            background-color: #10b981;
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+            animation: pulseAnimation 1.8s infinite;
+        }
+
+        @keyframes pulseAnimation {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        /* Hero Profile Card */
+        .it-profile-card {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 16px;
+            padding: 14px 18px;
+            transition: all 0.3s ease;
+        }
+
+        .it-profile-card:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.25);
+            transform: translateY(-2px);
+        }
+
+        /* 2. IT Filter Bar */
+        .it-filter-card {
+            background: #ffffff;
+            border: 1px solid var(--it-card-border);
+            border-radius: 16px;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.03);
+            transition: all 0.2s ease;
+        }
+
+        .it-filter-card:hover {
+            box-shadow: 0 6px 22px rgba(37, 99, 235, 0.06);
+        }
+
+        .form-select-it, .form-control-it {
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            padding: 0.65rem 1rem;
+            font-size: 0.925rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .form-select-it:focus, .form-control-it:focus {
+            border-color: var(--it-blue-600);
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+        }
+
+        /* 3. Modern IT KPI Cards */
+        .it-kpi-card {
+            background: #ffffff;
+            border: 1px solid var(--it-card-border);
+            border-radius: 18px;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.03);
+            transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .it-kpi-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 14px 30px rgba(0, 0, 0, 0.07);
+        }
+
+        .it-kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+        }
+
+        .it-kpi-card.kpi-total::before { background: linear-gradient(90deg, #2563eb, #38bdf8); }
+        .it-kpi-card.kpi-active::before { background: linear-gradient(90deg, #10b981, #34d399); }
+        .it-kpi-card.kpi-repair::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+        .it-kpi-card.kpi-retired::before { background: linear-gradient(90deg, #64748b, #94a3b8); }
+
+        .kpi-icon-box {
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            transition: all 0.3s ease;
+        }
+
+        .it-kpi-card:hover .kpi-icon-box {
+            transform: scale(1.08) rotate(3deg);
+        }
+
+        .kpi-icon-total { background: #eff6ff; color: #2563eb; }
+        .kpi-icon-active { background: #ecfdf5; color: #10b981; }
+        .kpi-icon-repair { background: #fffbeb; color: #f59e0b; }
+        .kpi-icon-retired { background: #f1f5f9; color: #64748b; }
+
+        .kpi-value {
+            font-size: 2.15rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            color: #0f172a;
+            line-height: 1.15;
+        }
+
+        /* 4. Category Breakdown List & Progress */
+        .cat-item-row {
+            padding: 10px 14px;
+            border-radius: 12px;
+            border: 1px solid #f1f5f9;
+            background: #ffffff;
+            transition: all 0.2s ease;
+            margin-bottom: 8px;
+        }
+
+        .cat-item-row:hover {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+            transform: translateX(4px);
+        }
+
+        .cat-icon-badge {
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            background: #f1f5f9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.95rem;
+        }
+
+        /* 5. Custom Card & Table Styling */
+        .it-card {
+            background: #ffffff;
+            border: 1px solid var(--it-card-border);
+            border-radius: 18px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.03);
+        }
+
+        .it-table thead th {
+            background-color: #f8fafc;
+            color: #64748b;
+            font-size: 0.825rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 12px 16px;
+        }
+
+        .it-table tbody td {
+            padding: 14px 16px;
+            font-size: 0.9rem;
+            vertical-align: middle;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .it-table tbody tr:hover td {
+            background-color: #f8fafc;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+
+        .status-pill-active { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+        .status-pill-repair { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+        .status-pill-retired { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+
+        .chart-wrapper {
+            position: relative;
+            max-width: 290px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app-container" class="d-flex">
+        <!-- Sidebar Layout -->
+        <div id="sidebar-placeholder"></div>
+        <script>if (window.renderCachedSidebar) renderCachedSidebar();</script>
+
+        <!-- Main Content -->
+        <div class="main-content flex-grow-1 p-3 p-md-4">
+            <div id="header-placeholder"></div>
+
+            <!-- ================= Hero Section: IT Operations Command Center ================= -->
+            <div class="it-hero-card mb-4">
+                <div class="row align-items-center g-4 position-relative" style="z-index: 2;">
+                    <!-- ด้านซ้าย: หัวข้อระบบและเมนูลัด -->
+                    <div class="col-lg-8 col-xl-9">
+                        <h3 class="fw-bold text-white mb-2 d-flex align-items-center gap-2">
+                            <i class="fa-solid fa-server text-info"></i>
+                            <span>ภาพรวมระบบครุภัณฑ์สารสนเทศ อย.</span>
+                        </h3>
+                     
+                    </div>
+
+                    <!-- ด้านขวา: สถานะระบบและการซิงค์ข้อมูล (System Status & Live Clock) -->
+                    <div class="col-lg-4 col-xl-3 text-lg-end">
+                        <div class="d-inline-flex flex-column align-items-lg-end gap-1 p-3 rounded-4 bg-white bg-opacity-10 border border-white border-opacity-10 w-100 w-lg-auto">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="pulse-live"></span>
+                                <span class="fw-semibold text-white small">ONLINE • ระบบพร้อมใช้งาน</span>
+                            </div>
+                            <div class="text-info small" id="system-time">
+                                <i class="fa-regular fa-clock me-1"></i> กำลังซิงค์ข้อมูล...
+                            </div>
+                            <div class="text-white-50" style="font-size: 0.725rem;">
+                                นายทหารเทคโนโลยีสารสนเทศ หน่วยบัญชาการอากาศโยธิน
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= Filter Bar: แถบตัวกรองสังกัด/หน่วยงาน ================= -->
+            <div class="it-filter-card mb-4 p-3">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2 pb-2 border-bottom">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <span class="fw-bold text-dark small"><i class="fa-solid fa-filter me-1 text-primary"></i>ตัวกรองข้อมูล</span>
+                        <div id="role-scope-badge"></div>
+                    </div>
+                </div>
+                <div class="row g-3 align-items-center">
+                    <div class="col-lg-5 col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0 text-primary">
+                                <i class="fa-solid fa-building"></i>
+                            </span>
+                            <select class="form-select form-select-it border-start-0 bg-light" id="select-department" onchange="onDepartmentChange()">
+                                <option value="all">📍 แสดงทุกสังกัดทั้งหมด</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-lg-5 col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0 text-primary">
+                                <i class="fa-solid fa-sitemap"></i>
+                            </span>
+                            <select class="form-select form-select-it border-start-0 bg-light" id="select-organization" onchange="loadDashboardData()">
+                                <option value="all">🏢 แสดงทุกหน่วยงาน</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-lg-2 col-md-12 d-flex justify-content-end align-items-center">
+                        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3 w-100 w-lg-auto" onclick="resetFilters()" title="ล้างตัวกรอง">
+                            <i class="fa-solid fa-rotate-left me-1"></i> รีเซ็ต
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= KPI Stat Cards: 4 การ์ดสถิติ ================= -->
+            <div class="row g-3 mb-4">
+                <!-- 1. รวมทั้งหมด -->
+                <div class="col-12 col-sm-6 col-xl-3">
+                    <div class="it-kpi-card kpi-total">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <div class="text-secondary small fw-semibold">ครุภัณฑ์ทั้งหมดในระบบ</div>
+                                <div class="kpi-value mt-1" id="stat-total">0</div>
+                            </div>
+                            <div class="kpi-icon-box kpi-icon-total">
+                                <i class="fa-solid fa-boxes-stacked"></i>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center justify-content-between text-muted small pt-2 border-top">
+                            <span><i class="fa-solid fa-circle-info me-1 text-primary"></i> ข้อมูลตามตัวกรอง</span>
+                            <span class="fw-semibold text-dark">100%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. ใช้งานปกติ -->
+                <div class="col-12 col-sm-6 col-xl-3">
+                    <div class="it-kpi-card kpi-active">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <div class="text-secondary small fw-semibold">ใช้งานปกติ</div>
+                                <div class="kpi-value text-success mt-1" id="stat-active">0</div>
+                            </div>
+                            <div class="kpi-icon-box kpi-icon-active">
+                                <i class="fa-solid fa-circle-check"></i>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center justify-content-between text-muted small pt-2 border-top">
+                            <span><i class="fa-solid fa-shield-halved me-1 text-success"></i> ความพร้อมปฏิบัติการ</span>
+                            <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill" id="pct-active">0%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. ส่งซ่อมบำรุง -->
+                <div class="col-12 col-sm-6 col-xl-3">
+                    <div class="it-kpi-card kpi-repair">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <div class="text-secondary small fw-semibold">แจ้งซ่อม</div>
+                                <div class="kpi-value text-warning mt-1" id="stat-repair">0</div>
+                            </div>
+                            <div class="kpi-icon-box kpi-icon-repair">
+                                <i class="fa-solid fa-wrench"></i>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center justify-content-between text-muted small pt-2 border-top">
+                            <span><i class="fa-solid fa-triangle-exclamation me-1 text-warning"></i> อยู่ระหว่างซ่อม</span>
+                            <span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill" id="pct-repair">0%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. จำหน่าย/ปลดประจำการ -->
+                <div class="col-12 col-sm-6 col-xl-3">
+                    <div class="it-kpi-card kpi-retired">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <div class="text-secondary small fw-semibold">จำหน่าย </div>
+                                <div class="kpi-value text-secondary mt-1" id="stat-retired">0</div>
+                            </div>
+                            <div class="kpi-icon-box kpi-icon-retired">
+                                <i class="fa-solid fa-box-archive"></i>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center justify-content-between text-muted small pt-2 border-top">
+                            <span><i class="fa-solid fa-clock-rotate-left me-1 text-secondary"></i> รอส่งคืน</span>
+                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill" id="pct-retired">0%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= Analytics: ชาร์ตวงกลม & สัดส่วนหมวดหมู่ ================= -->
+            <div class="row g-4 mb-4">
+                <!-- ชาร์ตโดนัทสัดส่วนหมวดหมู่ -->
+                <div class="col-lg-5">
+                    <div class="it-card h-100 p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="fw-bold m-0 text-dark">
+                                <i class="fa-solid fa-chart-pie text-primary me-2"></i>สัดส่วนหมวดหมู่ครุภัณฑ์
+                            </h6>
+                            <span class="badge bg-light text-secondary border rounded-pill small">Doughnut Analysis</span>
+                        </div>
+                        <div class="chart-wrapper my-auto py-3 position-relative">
+                            <canvas id="categoryPieChart"></canvas>
+                            <div class="position-absolute top-50 start-50 translate-middle text-center" style="pointer-events: none;">
+                                <div class="small text-muted fw-semibold" style="font-size: 0.725rem;">หมวดหมู่</div>
+                                <div class="fw-bold text-dark fs-4" id="chart-center-count" style="line-height: 1;">0</div>
+                                <div class="text-secondary" style="font-size: 0.7rem;">ประเภท</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- รายการแจกแจงหมวดหมู่ (Category Breakdown List with Progress) -->
+                <div class="col-lg-7">
+                    <div class="it-card h-100 p-4 d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="fw-bold m-0 text-dark">
+                                <i class="fa-solid fa-layer-group text-primary me-2"></i>การแจกแจงตามประเภทอุปกรณ์ (IT Category Breakdown)
+                            </h6>
+                            <small class="text-muted" id="category-summary-count">0 หมวดหมู่</small>
+                        </div>
+                        <div id="category-chips" class="flex-grow-1" style="max-height: 380px; overflow-y: auto; padding-right: 4px;">
+                            <span class="text-muted">กำลังโหลดข้อมูลหมวดหมู่...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+        </div>
+    </div>
+
+    <!-- JavaScript Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let pieChartInstance = null;
+        let allEquipments = [];
+        let allDepartments = [];
+        let currentUserRole = 'Staff';
+        let currentUserDeptId = null;
+        let currentUserDeptName = '';
+        let isAdmin = false;
+
+        window.onload = async function() {
+            try {
+                await loadLayout();
+            } catch (e) {
+                console.error('Layout load error:', e);
+            }
+
+            try {
+                await loadUserProfile();
+            } catch (e) {
+                console.error('User profile error:', e);
+            }
+
+            try {
+                await loadInitialData();
+            } catch (e) {
+                console.error('Initial data error:', e);
+            }
+
+            updateLiveClock();
+            setInterval(updateLiveClock, 30000); // อัปเดตเวลาทุก 30 วินาที
+        };
+
+        function updateLiveClock() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + ' น.';
+            const dateStr = now.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
+            const clockEl = document.getElementById('system-time');
+            if (clockEl) {
+                clockEl.innerHTML = `<i class="fa-regular fa-clock me-1"></i> อัปเดตล่าสุด: ${dateStr} ${timeStr}`;
+            }
+        }
+
+        function initUserRole(user) {
+            try {
+                const storedUser = user || JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+                const roleRaw = String(storedUser.role || 'staff').toLowerCase().trim();
+                isAdmin = roleRaw === 'admin';
+                currentUserRole = isAdmin ? 'Admin' : 'Staff';
+                currentUserDeptId = storedUser.department_id || null;
+                currentUserDeptName = storedUser.department_name || '';
+            } catch (e) {}
+
+            const badgeEl = document.getElementById('role-scope-badge');
+            if (badgeEl) {
+                if (isAdmin) {
+                    badgeEl.innerHTML = `<span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1 rounded-pill"><i class="fa-solid fa-user-shield me-1"></i>สิทธิ์ Admin: ภาพรวมทุกสังกัดในระบบ (เลือกกรองได้)</span>`;
+                } else {
+                    const myDept = currentUserDeptName || 'สังกัดตนเอง';
+                    badgeEl.innerHTML = `<span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1 rounded-pill"><i class="fa-solid fa-building-user me-1"></i>สิทธิ์ Staff: แสดงเฉพาะข้อมูลสังกัด <strong>${escapeHtml(myDept)}</strong></span>`;
+                }
+            }
+        }
+
+        function canOperateEquipment(eq) {
+            if (isAdmin) return true;
+            const matchId = currentUserDeptId && String(getDeptId(eq)) === String(currentUserDeptId);
+            const eqDeptName = String(eq.department_name || (eq.department ? eq.department.name : '')).trim().toLowerCase();
+            const myDeptName = String(currentUserDeptName || '').trim().toLowerCase();
+            const matchName = myDeptName && eqDeptName === myDeptName;
+            return matchId || matchName;
+        }
+
+        async function loadUserProfile() {
+            try {
+                const storedUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+                const userId = storedUser.id || localStorage.getItem('user_id') || sessionStorage.getItem('user_id');
+
+                initUserRole(storedUser);
+
+                if (userId) {
+                    const response = await fetch('/api/me', {
+                        headers: { 'x-user-id': userId }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        const userData = data.user || (data.data ? data.data : data);
+                        initUserRole(userData);
+                        renderUserData(userData);
+                        return;
+                    }
+                }
+
+                if (storedUser.username || storedUser.fullname) {
+                    renderUserData(storedUser);
+                } else if (typeof window.renderSidebarProfileData === 'function') {
+                    window.renderSidebarProfileData();
+                }
+            } catch (error) {
+                console.error('Error loading user profile:', error);
+            }
+        }
+
+        function renderUserData(user) {
+            if (!user) return;
+            
+            // อัปเดตข้อมูลใน localStorage หากมีข้อมูลใหม่จาก API
+            try {
+                const current = JSON.parse(localStorage.getItem('user') || '{}');
+                localStorage.setItem('user', JSON.stringify({ ...current, ...user }));
+            } catch (e) {}
+
+            // สั่งอัปเดตข้อมูลบน Sidebar ทันที
+            if (typeof window.renderSidebarProfileData === 'function') {
+                window.renderSidebarProfileData();
+            }
+        }
+
+        async function loadLayout() {
+            try {
+                await initSidebar('dashboard.html');
+            } catch(e) { 
+                console.error('Error loading layout:', e); 
+            }
+        }
+
+        function getDeptId(eq) { return eq.department_id || (eq.department ? eq.department.id : ''); }
+        function getOrgName(eq) { return eq.organization_name || (eq.organization ? eq.organization.name : ''); }
+
+        async function loadInitialData() {
+            try {
+                const [resDept, resEq] = await Promise.all([
+                    fetch('/api/departments'),
+                    fetch('/api/equipments')
+                ]);
+
+                if (resDept.ok) {
+                    allDepartments = await resDept.json();
+                    populateDepartments();
+                }
+
+                if (resEq.ok) {
+                    const rawEquipments = await resEq.json();
+                    if (!isAdmin) {
+                        allEquipments = (Array.isArray(rawEquipments) ? rawEquipments : []).filter(eq => canOperateEquipment(eq));
+                    } else {
+                        allEquipments = Array.isArray(rawEquipments) ? rawEquipments : [];
+                    }
+                }
+
+                populateOrganizations();
+                loadDashboardData();
+            } catch (err) {
+                console.error('Error loading initial data:', err);
+            }
+        }
+
+        function populateDepartments() {
+            const select = document.getElementById('select-department');
+            if (!select) return;
+
+            if (!isAdmin) {
+                const myDeptId = currentUserDeptId || '';
+                const myDeptName = currentUserDeptName || 'สังกัดตนเอง';
+                select.innerHTML = `<option value="${myDeptId}" selected>📍 ${escapeHtml(myDeptName)}</option>`;
+                select.disabled = true;
+                return;
+            }
+
+            select.innerHTML = '<option value="all">📍 แสดงทุกสังกัดทั้งหมด</option>';
+            allDepartments.forEach(dept => {
+                const opt = document.createElement('option');
+                opt.value = dept.id;
+                opt.textContent = `🏢 ${dept.name}`;
+                select.appendChild(opt);
+            });
+            select.disabled = false;
+        }
+
+        function populateOrganizations() {
+            const selectedDeptId = document.getElementById('select-department')?.value;
+            const orgSelect = document.getElementById('select-organization');
+            if (!orgSelect) return;
+            
+            let filtered = allEquipments;
+            if (isAdmin && selectedDeptId && selectedDeptId !== 'all') {
+                filtered = allEquipments.filter(eq => String(getDeptId(eq)) === String(selectedDeptId));
+            }
+
+            const orgs = [...new Set(filtered
+                .map(eq => getOrgName(eq))
+                .filter(org => org && String(org).trim() !== '' && org !== '-')
+            )];
+
+            let orgHtml = '<option value="all">🏢 แสดงทุกหน่วยงาน</option>';
+            orgs.sort().forEach(org => {
+                orgHtml += `<option value="${escapeHtml(org)}">${escapeHtml(org)}</option>`;
+            });
+            orgSelect.innerHTML = orgHtml;
+        }
+
+        function onDepartmentChange() {
+            populateOrganizations();
+            loadDashboardData();
+        }
+
+        function resetFilters() {
+            if (isAdmin) {
+                document.getElementById('select-department').value = 'all';
+            }
+            populateOrganizations();
+            document.getElementById('select-organization').value = 'all';
+            loadDashboardData();
+        }
+
+        // ตัวจับคู่ไอคอนฮาร์ดแวร์ไอทีอัตโนมัติตามชื่อหมวดหมู่
+        function getCategoryIcon(name) {
+            const lower = String(name || '').toLowerCase();
+            if (lower.includes('โน้ต') || lower.includes('laptop') || lower.includes('notebook')) {
+                return { icon: 'fa-solid fa-laptop', color: '#0284c7', bg: '#e0f2fe' };
+            }
+            if (lower.includes('คอม') || lower.includes('pc') || lower.includes('ตั้งโต๊ะ') || lower.includes('workstation')) {
+                return { icon: 'fa-solid fa-desktop', color: '#2563eb', bg: '#eff6ff' };
+            }
+            if (lower.includes('ปริ้น') || lower.includes('พิมพ์') || lower.includes('printer')) {
+                return { icon: 'fa-solid fa-print', color: '#d97706', bg: '#fef3c7' };
+            }
+            if (lower.includes('เซิร์ฟ') || lower.includes('server')) {
+                return { icon: 'fa-solid fa-server', color: '#ef4444', bg: '#fee2e2' };
+            }
+            if (lower.includes('สวิตช์') || lower.includes('switch') || lower.includes('เน็ต') || lower.includes('network') || lower.includes('router')) {
+                return { icon: 'fa-solid fa-network-wired', color: '#059669', bg: '#d1fae5' };
+            }
+            if (lower.includes('จอ') || lower.includes('monitor') || lower.includes('display')) {
+                return { icon: 'fa-solid fa-tv', color: '#7c3aed', bg: '#ede9fe' };
+            }
+            if (lower.includes('ups') || lower.includes('สำรองไฟ')) {
+                return { icon: 'fa-solid fa-battery-three-quarters', color: '#0891b2', bg: '#cffafe' };
+            }
+            return { icon: 'fa-solid fa-microchip', color: '#475569', bg: '#f1f5f9' };
+        }
+
+        async function loadDashboardData() {
+            const deptId = document.getElementById('select-department')?.value || (isAdmin ? 'all' : String(currentUserDeptId || ''));
+            const orgName = document.getElementById('select-organization')?.value || 'all';
+
+            const filtered = allEquipments.filter(eq => {
+                if (!isAdmin && !canOperateEquipment(eq)) return false;
+                const matchDept = (deptId === 'all') || String(getDeptId(eq)) === String(deptId);
+                const matchOrg = (orgName === 'all') || getOrgName(eq) === orgName;
+                return matchDept && matchOrg;
+            });
+
+            const total = filtered.length;
+            let active = 0, repair = 0, retired = 0;
+            filtered.forEach(eq => {
+                const status = eq.status || '';
+                if (status === 'ใช้งานปกติ' || status === 'ปกติ' || status === 'Active') active++;
+                else if (status === 'ส่งซ่อม' || status === 'แจ้งซ่อม' || status === 'กำลังซ่อม') repair++;
+                else if (status === 'จำหน่าย' || status === 'Retired') retired++;
+                else active++;
+            });
+
+            // อัปเดตตัวเลข KPI Cards
+            document.getElementById('stat-total').innerText = total.toLocaleString();
+            document.getElementById('stat-active').innerText = active.toLocaleString();
+            document.getElementById('stat-repair').innerText = repair.toLocaleString();
+            document.getElementById('stat-retired').innerText = retired.toLocaleString();
+
+            // คำนวณเปอร์เซ็นต์อัตราส่วน
+            const pctActive = total > 0 ? ((active / total) * 100).toFixed(1) : 0;
+            const pctRepair = total > 0 ? ((repair / total) * 100).toFixed(1) : 0;
+            const pctRetired = total > 0 ? ((retired / total) * 100).toFixed(1) : 0;
+
+            document.getElementById('pct-active').innerText = `${pctActive}%`;
+            document.getElementById('pct-repair').innerText = `${pctRepair}%`;
+            document.getElementById('pct-retired').innerText = `${pctRetired}%`;
+
+            // สถิติหมวดหมู่
+            const catMap = {};
+            filtered.forEach(eq => {
+                const cName = eq.category_name || (eq.category ? eq.category.name : 'ไม่ระบุหมวดหมู่');
+                catMap[cName] = (catMap[cName] || 0) + 1;
+            });
+
+            const catNames = Object.keys(catMap);
+            const catCounts = Object.values(catMap);
+            document.getElementById('category-summary-count').innerText = `${catNames.length} หมวดหมู่`;
+            const centerEl = document.getElementById('chart-center-count');
+            if (centerEl) centerEl.innerText = catNames.length;
+
+            const categoryBox = document.getElementById('category-chips');
+            if (catNames.length > 0) {
+                categoryBox.innerHTML = catNames.map((name, idx) => {
+                    const count = catCounts[idx];
+                    const percent = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
+                    const meta = getCategoryIcon(name);
+
+                    return `
+                        <div class="cat-item-row d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center gap-3 min-w-0">
+                                <div class="cat-icon-badge" style="background-color: ${meta.bg}; color: ${meta.color};">
+                                    <i class="${meta.icon}"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="fw-semibold text-dark text-truncate" style="font-size: 0.925rem;">${escapeHtml(name)}</div>
+                                    <div class="text-muted small">${percent}% ของครุภัณฑ์ทั้งหมด</div>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="progress" style="width: 70px; height: 6px;" title="${percent}%">
+                                    <div class="progress-bar" role="progressbar" style="width: ${percent}%; background-color: ${meta.color};" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100"></div>
+                                </div>
+                                <span class="badge bg-light text-dark border px-3 py-1.5 fw-bold" style="font-size: 0.85rem; min-width: 45px; text-align: center;">
+                                    ${count}
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                categoryBox.innerHTML = `
+                    <div class="text-center py-4 text-muted">
+                        <i class="fa-solid fa-folder-open fs-2 mb-2 opacity-50"></i>
+                        <div>ไม่มีข้อมูลครุภัณฑ์ในสังกัด/หน่วยงานที่เลือก</div>
+                    </div>
+                `;
+            }
+
+            renderPieChart(catNames, catCounts);
+            renderRecentEquipments(filtered);
+        }
+
+        function renderRecentEquipments(items) {
+            const tbody = document.getElementById('recent-equipments-body');
+            if (!items || items.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">
+                            <i class="fa-solid fa-inbox fs-3 mb-2 opacity-50 d-block"></i>
+                            ไม่พบรายการครุภัณฑ์ตามเงื่อนไข
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            // นำ 6 รายการแรกมาแสดง
+            const recents = items.slice(0, 6);
+            tbody.innerHTML = recents.map((eq, index) => {
+                let statusBadge = '<span class="status-pill status-pill-active"><i class="fa-solid fa-circle-check"></i> พร้อมใช้งาน</span>';
+                const st = eq.status || '';
+                if (st === 'ส่งซ่อม' || st === 'แจ้งซ่อม' || st === 'กำลังซ่อม') {
+                    statusBadge = '<span class="status-pill status-pill-repair"><i class="fa-solid fa-wrench"></i> ส่งซ่อม</span>';
+                } else if (st === 'จำหน่าย' || st === 'Retired') {
+                    statusBadge = '<span class="status-pill status-pill-retired"><i class="fa-solid fa-box-archive"></i> จำหน่าย</span>';
+                }
+
+                const catMeta = getCategoryIcon(eq.category_name);
+
+                return `
+                    <tr>
+                        <td class="text-center text-muted fw-semibold">${index + 1}</td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="cat-icon-badge" style="background-color: ${catMeta.bg}; color: ${catMeta.color}; width: 30px; height: 30px; font-size: 0.8rem;">
+                                    <i class="${catMeta.icon}"></i>
+                                </div>
+                                <div>
+                                    <span class="fw-bold text-dark">${escapeHtml(eq.computer_name || '-')}</span>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="fw-medium text-dark">${escapeHtml(eq.user_name || '-')}</div>
+                            <small class="text-muted">${escapeHtml(eq.position || '')}</small>
+                        </td>
+                        <td>
+                            <div class="text-dark">${escapeHtml(eq.department_name || '-')}</div>
+                            <small class="text-muted">${escapeHtml(eq.organization_name || '')}</small>
+                        </td>
+                        <td>
+                            <span class="badge bg-light text-secondary border px-2 py-1">
+                                ${escapeHtml(eq.category_name || '-')}
+                            </span>
+                        </td>
+                        <td class="text-center">${statusBadge}</td>
+                        <td class="text-center">
+                            <a href="equipments.html" class="btn btn-sm btn-outline-secondary rounded-circle" style="width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center;" title="ดูในทะเบียน">
+                                <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 0.75rem;"></i>
+                            </a>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderPieChart(labels, data) {
+            const ctx = document.getElementById('categoryPieChart').getContext('2d');
+
+            if (pieChartInstance) {
+                pieChartInstance.destroy();
+            }
+
+            if (!data || data.length === 0) {
+                return;
+            }
+
+            // ชุดสี IT High-Tech Palette
+            const chartColors = [
+                '#2563eb', // Cyber Blue
+                '#06b6d4', // Cyan
+                '#10b981', // Emerald
+                '#f59e0b', // Amber
+                '#8b5cf6', // Violet
+                '#ec4899', // Pink
+                '#3b82f6', // Bright Blue
+                '#14b8a6', // Teal
+                '#64748b'  // Slate
+            ];
+
+            pieChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: chartColors.slice(0, labels.length),
+                        borderWidth: 3,
+                        borderColor: '#ffffff',
+                        hoverOffset: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    cutout: '72%',
+                    plugins: {
+                        legend: {
+                            display: false // ใช้ Category Breakdown ด้านขวาแทน legend เพื่อความสะอาดคมชัด
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(11, 19, 43, 0.95)',
+                            titleFont: { family: 'Prompt', size: 13, weight: '600' },
+                            bodyFont: { family: 'Prompt', size: 13 },
+                            padding: 12,
+                            cornerRadius: 10,
+                            boxPadding: 6,
+                            borderColor: 'rgba(255, 255, 255, 0.15)',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const val = context.raw;
+                                    const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+                                    return ` ${context.label}: ${val} เครื่อง (${pct}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return String(text)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>

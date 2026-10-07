@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>บริหารจัดการผู้ใช้งาน - ระบบบริหารจัดการครุภัณฑ์</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font: Prompt -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <!-- Cropper.js CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
+    <!-- เรียกใช้งานไฟล์ CSS ของเราที่นี่ -->
+    <link rel="stylesheet" href="/styles.css">
+    <!-- 🔒 ดึงไฟล์ Auth Guard มาทำงานก่อนใครเพื่อน -->
+    <script src="../auth-guard.js"></script>
+    <!-- ออกจากระบบ -->
+    <script src="../global-app.js"></script> 
+    <style>
+        .avatar-img { width: 40px; height: 40px; object-fit: cover; border-radius: 50%; }
+        .avatar-preview-img { width: 96px; height: 96px; object-fit: cover; border-radius: 50%; }
+        /* Style สำหรับภาพใน Crop Modal */
+        .crop-container {
+            max-height: 400px;
+            background-color: #f8f9fa;
+        }
+        .crop-container img {
+            max-width: 100%;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app-container" class="d-flex min-vh-100">
+        <!-- Sidebar Placeholder -->
+        <div id="sidebar-placeholder"></div>
+        <script>if (window.renderCachedSidebar) renderCachedSidebar();</script>
+
+        <!-- Main Content -->
+        <div class="main-content flex-grow-1 p-4">
+            <!-- Header Placeholder -->
+            <div id="header-placeholder"></div>
+
+            <!-- Header Title Zone -->
+            <div class="d-flex align-items-center justify-content-between mb-4">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="bg-primary text-white p-2 rounded-3 d-flex align-items-center justify-content-center" style="width: 45px; height: 45px;">
+                        <i class="fa-solid fa-users fs-4"></i>
+                    </div>
+                    <div>
+                        <h4 class="fw-bold m-0 text-dark">บริหารจัดการข้อมูลผู้ใช้งาน (Users)</h4>
+                        <small class="text-muted">เพิ่ม ลบ แก้ไข และกำหนดสิทธิ์การใช้งานของผู้ใช้ในระบบ</small>
+                    </div>
+                </div>
+                <button onclick="openUserModal()" class="btn btn-primary px-3 py-2 fw-medium shadow-sm d-flex align-items-center gap-2">
+                    <i class="fa-solid fa-user-plus"></i>
+                    <span>ลงทะเบียนสมาชิกใหม่</span>
+                </button>
+            </div>
+
+            <!-- Main Content Card Zone -->
+            <div class="card card-custom p-4">
+                <!-- Search & Filter Bar -->
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+                    <h5 class="fw-bold text-dark m-0">
+                        <i class="fa-solid fa-users-gear me-2 text-primary"></i>รายชื่อผู้ใช้งานทั้งหมด
+                    </h5>
+                    <div class="d-flex flex-column flex-sm-row gap-2" style="min-width: 320px;">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-light border-end-0">
+                                <i class="fa-solid fa-magnifying-glass text-muted"></i>
+                            </span>
+                            <input type="text" id="search-users" class="form-control border-start-0" placeholder="ค้นหา Username / ชื่อ / สังกัด..." onkeyup="onSearchChange()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Table Content -->
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="text-center" style="width: 70px;">รูปโปรไฟล์</th>
+                                <th>Username / ชื่อผู้ใช้</th>
+                                <th>ชื่อ-นามสกุล</th>
+                                <th>สังกัด / แผนก</th>
+                                <th>สิทธิ์การใช้งาน</th>
+                                <th class="text-center" style="width: 130px;">สถานะ</th>
+                                <th class="text-center" style="width: 175px;">การจัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-table-body">
+                            <tr>
+                                <td colspan="7" class="text-center py-5 text-muted">
+                                    <div class="spinner-border spinner-border-sm text-primary me-2"></div>
+                                    กำลังดึงข้อมูลผู้ใช้งาน...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Add/Edit User -->
+    <div class="modal fade" id="userModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title fw-bold text-dark" id="modal-title">ลงทะเบียนสมาชิกใหม่</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="user-form" onsubmit="handleFormSubmit(event)">
+                    <div class="modal-body p-4 space-y-3">
+                        <input type="hidden" id="user-id">
+
+                        <!-- Avatar Upload Preview -->
+                        <div class="d-flex flex-column align-items-center justify-content-center mb-3">
+                            <div class="position-relative">
+                                <img id="avatar-preview" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" class="avatar-preview-img border shadow-sm bg-light">
+                                <label for="avatar-input" class="position-absolute bottom-0 end-0 bg-primary text-white p-2 rounded-circle cursor-pointer shadow hover:bg-blue-700 transition" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fa-solid fa-camera fs-6"></i>
+                                </label>
+                                <input type="file" id="avatar-input" accept="image/*" class="d-none" onchange="previewImage(event)">
+                            </div>
+                            <small class="text-muted mt-2">คลิกที่รูปเพื่อเลือกและครอบตัดโปรไฟล์</small>
+                        </div>
+
+                        <!-- Form Fields -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-muted">Username <span class="text-danger">*</span></label>
+                            <input type="text" id="input-username" required class="form-control">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-muted">Password <span id="pass-req-star" class="text-danger">*</span></label>
+                            <input type="password" id="input-password" class="form-control" placeholder="ตั้งรหัสผ่าน">
+                            <small id="pass-help-text" class="text-muted d-none">หากไม่ต้องการเปลี่ยนรหัสผ่าน ให้เว้นว่างไว้</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-muted">ชื่อ-นามสกุล</label>
+                            <input type="text" id="input-fullname" class="form-control">
+                        </div>
+
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <label class="form-label small fw-semibold text-muted">สิทธิ์การใช้งาน <span class="text-danger">*</span></label>
+                                <select id="input-role" required class="form-select">
+                                    <option value="Staff">Staff</option>
+                                    <option value="Admin">Admin</option>
+                                </select>
+                            </div>
+
+                            <div class="col-6">
+                                <label class="form-label small fw-semibold text-muted">เลือกสังกัด</label>
+                                <select id="input-department" class="form-select">
+                                    <option value="">-- เลือกสังกัด --</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                        <button type="submit" class="btn btn-primary px-4">บันทึกข้อมูล</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Crop Image -->
+    <div class="modal fade" id="cropModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title fw-bold fs-6"><i class="fa-solid fa-crop me-2"></i>ปรับแต่ง/ครอบตัดรูปโปรไฟล์</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-3">
+                    <div class="crop-container rounded overflow-hidden">
+                        <img id="crop-image-src" src="" alt="Crop Image">
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="button" class="btn btn-primary px-4" id="btn-crop-confirm">
+                        <i class="fa-solid fa-check me-1"></i>ใช้รูปนี้
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: User Activity History -->
+    <div class="modal fade" id="userHistoryModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-light border-bottom">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="position-relative flex-shrink-0">
+                            <img id="history-user-avatar" src="/public/images/default-avatar.png" class="rounded-circle border shadow-sm" style="width: 48px; height: 48px; object-fit: cover;">
+                            <span id="history-user-status-dot" class="position-absolute bottom-0 end-0 p-1 bg-secondary border border-white rounded-circle" style="width: 12px; height: 12px;"></span>
+                        </div>
+                        <div>
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <h5 class="modal-title fw-bold text-dark m-0" id="history-user-fullname">ชื่อผู้ใช้งาน</h5>
+                                <span id="history-user-role-badge"></span>
+                                <span id="history-user-status-badge"></span>
+                            </div>
+                            <small class="text-muted" id="history-user-subinfo">@username | ใช้งานล่าสุด: -</small>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <!-- Filter Toolbar -->
+                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-3">
+                        <div class="btn-group btn-group-sm" role="group" id="activity-filter-group">
+                            <button type="button" class="btn btn-outline-primary active" onclick="filterActivities('ALL', this)">ทั้งหมด</button>
+                            <button type="button" class="btn btn-outline-primary" onclick="filterActivities('AUTH', this)">การเข้าสู่ระบบ</button>
+                            <button type="button" class="btn btn-outline-primary" onclick="filterActivities('EQUIPMENT', this)">ครุภัณฑ์</button>
+                            <button type="button" class="btn btn-outline-primary" onclick="filterActivities('REPAIR', this)">งานซ่อม</button>
+                            <button type="button" class="btn btn-outline-primary" onclick="filterActivities('AUDIT', this)">การสำรวจ</button>
+                        </div>
+                        <div class="input-group input-group-sm" style="max-width: 240px;">
+                            <span class="input-group-text bg-light border-end-0"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                            <input type="text" id="search-activity" class="form-control border-start-0" placeholder="ค้นหากิจกรรม..." onkeyup="onActivitySearchChange()">
+                        </div>
+                    </div>
+
+                    <!-- Activities Container / Table -->
+                    <div class="table-responsive border rounded-3" style="max-height: 420px; overflow-y: auto;">
+                        <table class="table table-hover align-middle mb-0" style="font-size: 0.9rem;">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th style="width: 170px;">วัน-เวลา</th>
+                                    <th style="width: 130px;">ประเภท</th>
+                                    <th>รายละเอียดการดำเนินการ</th>
+                                    <th style="width: 120px;" class="text-center">IP Address</th>
+                                </tr>
+                            </thead>
+                            <tbody id="user-activities-tbody">
+                                <tr>
+                                    <td colspan="4" class="text-center py-5 text-muted">
+                                        <div class="spinner-border spinner-border-sm text-primary me-2"></div>
+                                        กำลังดึงประวัติการดำเนินการ...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light py-2 px-4 d-flex justify-content-between align-items-center">
+                    <small class="text-muted" id="history-total-count">พบ 0 รายการ</small>
+                    <button type="button" class="btn btn-secondary btn-sm px-3" data-bs-dismiss="modal">ปิดหน้าต่าง</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1100;">
+        <div id="liveToast" class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body" id="toast-message">ทำรายการเรียบร้อยแล้ว</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Cropper.js JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    <script>
+        const DEFAULT_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+        let rawUsers = [];
+        let userModalInstance = null;
+        let cropModalInstance = null;
+        let historyModalInstance = null;
+        let toastInstance = null;
+        let cropper = null;
+        let croppedBlob = null; // ตัวแปรเก็บ Blob รูปที่ตัดแล้ว
+        
+        let currentUserActivities = [];
+        let activeActivityFilter = 'ALL';
+        let currentViewingUser = null;
+
+        // ตรวจสอบสิทธิ์การเข้าถึงหน้านี้ (เฉพาะ Admin เท่านั้น)
+        (function guardAdminOnly() {
+            const rawUser = localStorage.getItem('user') || localStorage.getItem('user_session') || sessionStorage.getItem('user');
+            let user = null;
+            try { if (rawUser) user = JSON.parse(rawUser); } catch(e){}
+            const role = String(user?.role || '').toLowerCase().trim();
+            if (role !== 'admin') {
+                alert('คุณไม่มีสิทธิ์เข้าถึงหน้านี้ (สำหรับผู้ดูแลระบบ Admin เท่านั้น)');
+                window.location.replace('dashboard.html');
+            }
+        })();
+
+        window.onload = async function() {
+            userModalInstance = new bootstrap.Modal(document.getElementById('userModal'));
+            cropModalInstance = new bootstrap.Modal(document.getElementById('cropModal'));
+            historyModalInstance = new bootstrap.Modal(document.getElementById('userHistoryModal'));
+            toastInstance = new bootstrap.Toast(document.getElementById('liveToast'));
+
+            await loadLayout();
+            loadUserProfile();
+            await loadDepartments();
+            await loadUsers();
+
+            // อัปเดตสถานะออนไลน์ของผู้ใช้แบบเรียลไทม์ทุก 30 วินาที
+            setInterval(loadUsers, 30000);
+
+            // Event เมื่อกดตกลงครอบตัดรูป
+            document.getElementById('btn-crop-confirm').addEventListener('click', function() {
+                if (!cropper) return;
+
+                // Crop เป็น Canvas ทรงกลม/จัตุรัส ขนาด 300x300
+                const canvas = cropper.getCroppedCanvas({
+                    width: 300,
+                    height: 300,
+                    imageSmoothingEnabled: true,
+                    imageSmoothingQuality: 'high',
+                });
+
+                canvas.toBlob((blob) => {
+                    croppedBlob = blob;
+                    // แสดง Preview ในหน้า User Modal
+                    const preview = document.getElementById('avatar-preview');
+                    preview.src = URL.createObjectURL(blob);
+                    
+                    cropModalInstance.hide();
+                }, 'image/jpeg', 0.9);
+            });
+        };
+
+        // Load Sidebar & Header Dynamic Components
+        async function loadLayout() {
+            try {
+                await initSidebar('users.html');
+            } catch(e) { console.error('Layout error:', e); }
+        }
+
+        function loadUserProfile() {
+            const userSession = JSON.parse(localStorage.getItem('user_session'));
+            const nameEl = document.getElementById('user-name');
+            const roleEl = document.getElementById('user-role');
+            const deptEl = document.getElementById('user-dept');
+            const avatarEl = document.getElementById('user-avatar');
+
+            if (userSession) {
+                if (nameEl) nameEl.innerText = userSession.fullname || userSession.username;
+                if (roleEl) roleEl.innerText = userSession.role;
+                if (deptEl) deptEl.innerText = userSession.department_name || 'ไม่ระบุสังกัด';
+                if (avatarEl) avatarEl.src = userSession.avatar || DEFAULT_AVATAR;
+            }
+        }
+
+        // ================= Fetch Data =================
+        async function loadDepartments() {
+            try {
+                const res = await fetch('/api/departments');
+                const departments = await res.json();
+                const select = document.getElementById('input-department');
+                select.innerHTML = '<option value="">-- เลือกสังกัด --</option>';
+                departments.forEach(dept => {
+                    select.innerHTML += `<option value="${dept.id}">${dept.name}</option>`;
+                });
+            } catch (err) { console.error('Error loading departments:', err); }
+        }
+
+        async function loadUsers() {
+            try {
+                const res = await fetch('/api/users');
+                rawUsers = await res.json();
+                renderUsersTable();
+            } catch (err) {
+                console.error('Error loading users:', err);
+                document.getElementById('users-table-body').innerHTML = `
+                    <tr><td colspan="7" class="text-center py-4 text-danger">เกิดข้อผิดพลาดในการดึงข้อมูลผู้ใช้งาน</td></tr>
+                `;
+            }
+        }
+
+        function renderUsersTable() {
+            const tbody = document.getElementById('users-table-body');
+            const search = document.getElementById('search-users').value.toLowerCase().trim();
+
+            const filtered = rawUsers.filter(u => {
+                return !search || 
+                    (u.username && u.username.toLowerCase().includes(search)) || 
+                    (u.fullname && u.fullname.toLowerCase().includes(search)) ||
+                    (u.department_name && u.department_name.toLowerCase().includes(search));
+            });
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">ไม่พบข้อมูลผู้ใช้งาน</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = '';
+            filtered.forEach(u => {
+                const avatarSrc = u.avatar ? u.avatar_url : DEFAULT_AVATAR;
+                const roleBadge = u.role === 'Admin' 
+                    ? `<span class="badge bg-purple-subtle text-purple border border-purple status-badge" style="background:#f3e8ff; color:#6b21a8; border-color:#d8b4fe;">Admin</span>`
+                    : `<span class="badge bg-secondary-subtle text-secondary border border-secondary status-badge">Staff</span>`;
+
+                const isOnline = Boolean(u.is_online);
+                const statusDot = isOnline 
+                    ? `<span class="position-absolute bottom-0 end-0 p-1 bg-success border border-white rounded-circle shadow-sm" style="width: 12px; height: 12px;" title="ออนไลน์"></span>`
+                    : `<span class="position-absolute bottom-0 end-0 p-1 bg-secondary border border-white rounded-circle" style="width: 12px; height: 12px;" title="ออฟไลน์"></span>`;
+
+                const statusBadge = isOnline
+                    ? `<span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2.5 py-1 fw-medium"><i class="fa-solid fa-circle text-success me-1 fa-beat-fade" style="font-size: 8px;"></i>ออนไลน์</span>`
+                    : `<div class="d-flex flex-column align-items-center">
+                           <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill px-2.5 py-1 fw-medium mb-1"><i class="fa-regular fa-circle me-1" style="font-size: 8px;"></i>ออฟไลน์</span>
+                           <small class="text-muted" style="font-size: 0.72rem;">${formatTimeAgo(u.last_active_at)}</small>
+                       </div>`;
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="text-center">
+                            <div class="position-relative d-inline-block">
+                                <img src="${avatarSrc}" class="avatar-img border shadow-sm" onerror="this.src='${DEFAULT_AVATAR}'">
+                                ${statusDot}
+                            </div>
+                        </td>
+                        <td class="fw-bold text-primary">${escapeHtml(u.username)}</td>
+                        <td>${escapeHtml(u.fullname || '-')}</td>
+                        <td>${escapeHtml(u.department_name || '-')}</td>
+                        <td>${roleBadge}</td>
+                        <td class="text-center">${statusBadge}</td>
+                        <td class="text-center">
+                            <button onclick="openUserHistoryModal(${u.id}, '${escapeHtml(u.fullname || u.username)}', '${escapeHtml(u.username)}', '${avatarSrc}', ${isOnline}, '${u.last_active_at || ''}', '${u.role || 'Staff'}', '${escapeHtml(u.department_name || '-')}')" class="btn btn-sm btn-light border text-info me-1 shadow-sm" title="ดูประวัติการใช้งานและกิจกรรม">
+                                <i class="fa-solid fa-clock-rotate-left me-1"></i>ประวัติ
+                            </button>
+                            <button onclick="editUser(${JSON.stringify(u).replace(/"/g, '&quot;')})" class="btn btn-sm btn-light border text-primary me-1 shadow-sm" title="แก้ไข">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                            <button onclick="deleteUser(${u.id})" class="btn btn-sm btn-light border text-danger shadow-sm" title="ลบ">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function onSearchChange() { renderUsersTable(); }
+
+        // ================= Modal Actions =================
+        function openUserModal() {
+            document.getElementById('user-id').value = '';
+            document.getElementById('user-form').reset();
+            document.getElementById('avatar-input').value = '';
+            croppedBlob = null; // ล้างค่ารูปภาพที่ Crop เดิม
+
+            document.getElementById('modal-title').innerText = 'ลงทะเบียนสมาชิกใหม่';
+            document.getElementById('avatar-preview').src = DEFAULT_AVATAR;
+            
+            document.getElementById('input-password').required = true;
+            document.getElementById('input-password').placeholder = 'ตั้งรหัสผ่าน';
+            document.getElementById('pass-req-star').classList.remove('d-none');
+            document.getElementById('pass-help-text').classList.add('d-none');
+
+            userModalInstance.show();
+        }
+
+        // ฟังชันเลือกรูปเพื่อนำไปเปิดใน Crop Modal
+        function previewImage(event) {
+            const files = event.target.files;
+            if (files && files.length > 0) {
+                const file = files[0];
+                const imageEl = document.getElementById('crop-image-src');
+                imageEl.src = URL.createObjectURL(file);
+
+                cropModalInstance.show();
+
+                // สร้าง Cropper Instance ใหม่ทุกครั้งเมื่อภาพโหลดเสร็จ
+                document.getElementById('cropModal').addEventListener('shown.bs.modal', function onModalShown() {
+                    if (cropper) {
+                        cropper.destroy();
+                    }
+                    cropper = new Cropper(imageEl, {
+                        aspectRatio: 1, // บังคับสัดส่วน 1:1
+                        viewMode: 1,
+                        autoCropArea: 0.8,
+                        responsive: true
+                    });
+                    // ลบ Event listener ป้องกันการผูกซ้ำ
+                    document.getElementById('cropModal').removeEventListener('shown.bs.modal', onModalShown);
+                });
+            }
+        }
+
+        function editUser(user) {
+            document.getElementById('user-id').value = user.id;
+            document.getElementById('avatar-input').value = '';
+            croppedBlob = null; // ล้างค่า Blob
+
+            document.getElementById('input-username').value = user.username;
+            document.getElementById('input-fullname').value = user.fullname || '';
+            document.getElementById('input-role').value = user.role;
+            document.getElementById('input-department').value = user.department_id || '';
+            document.getElementById('avatar-preview').src = user.avatar ? user.avatar_url : DEFAULT_AVATAR;
+
+            document.getElementById('input-password').value = '';
+            document.getElementById('input-password').required = false;
+            document.getElementById('input-password').placeholder = 'เว้นว่างไว้หากไม่ต้องการเปลี่ยน';
+            document.getElementById('pass-req-star').classList.add('d-none');
+            document.getElementById('pass-help-text').classList.remove('d-none');
+
+            document.getElementById('modal-title').innerText = 'แก้ไขข้อมูลผู้ใช้งาน';
+            userModalInstance.show();
+        }
+
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+            const userId = document.getElementById('user-id').value;
+            const formData = new FormData();
+            
+            formData.append('username', document.getElementById('input-username').value);
+            formData.append('password', document.getElementById('input-password').value);
+            formData.append('fullname', document.getElementById('input-fullname').value);
+            formData.append('role', document.getElementById('input-role').value);
+            formData.append('department_id', document.getElementById('input-department').value);
+
+            // หากมีการ Crop รูป ให้แนบ croppedBlob แทนไฟล์เดิม
+            if (croppedBlob) {
+                formData.append('avatar', croppedBlob, 'cropped-avatar.jpg');
+            } else {
+                const avatarFile = document.getElementById('avatar-input').files[0];
+                if (avatarFile) formData.append('avatar', avatarFile);
+            }
+
+            const url = userId ? `/api/users/${userId}` : '/api/users';
+            const method = userId ? 'PUT' : 'POST';
+
+            try {
+                const res = await fetch(url, { method: method, body: formData });
+                const result = await res.json();
+                if (res.ok) {
+                    showToast(result.message || 'บันทึกข้อมูลเรียบร้อย', 'bg-success');
+                    userModalInstance.hide();
+                    loadUsers();
+                } else {
+                    showToast(result.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'bg-danger');
+                }
+            } catch (err) {
+                showToast('ไม่สามารถเชื่อมต่อ Server ได้', 'bg-danger');
+            }
+        }
+
+        async function deleteUser(id) {
+            if (!confirm('คุณแน่ใจหรือไม่ว่าต้องการลบผู้ใช้นี้?')) return;
+            try {
+                const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
+                const result = await res.json();
+                if (res.ok) {
+                    showToast(result.message || 'ลบข้อมูลเรียบร้อย', 'bg-success');
+                    loadUsers();
+                } else {
+                    showToast(result.message || 'เกิดข้อผิดพลาดในการลบผู้ใช้', 'bg-danger');
+                }
+            } catch (err) { showToast('เกิดข้อผิดพลาดในการลบผู้ใช้งาน', 'bg-danger'); }
+        }
+
+        function showToast(msg, bgClass = 'bg-success') {
+            const toastEl = document.getElementById('liveToast');
+            toastEl.className = `toast align-items-center ${bgClass} border-0`;
+            document.getElementById('toast-message').textContent = msg;
+            toastInstance.show();
+        }
+
+        // Helper Function สำหรับแปลงข้อความป้องกัน XSS
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        // ================= Activity History Functions =================
+        async function openUserHistoryModal(userId, fullname, username, avatarUrl, isOnline, lastActiveAt, role, deptName) {
+            currentViewingUser = { userId, fullname, username, avatarUrl, isOnline, lastActiveAt, role, deptName };
+
+            // อัปเดตข้อมูลผู้ใช้ใน Modal Header
+            document.getElementById('history-user-avatar').src = avatarUrl || DEFAULT_AVATAR;
+            document.getElementById('history-user-fullname').textContent = fullname || username;
+            
+            const dotEl = document.getElementById('history-user-status-dot');
+            dotEl.className = `position-absolute bottom-0 end-0 p-1 ${isOnline ? 'bg-success' : 'bg-secondary'} border border-white rounded-circle shadow-sm`;
+            dotEl.title = isOnline ? 'ออนไลน์' : 'ออฟไลน์';
+
+            const roleBadgeEl = document.getElementById('history-user-role-badge');
+            roleBadgeEl.innerHTML = role === 'Admin' 
+                ? `<span class="badge bg-purple-subtle text-purple border border-purple" style="background:#f3e8ff; color:#6b21a8; border-color:#d8b4fe;">Admin</span>`
+                : `<span class="badge bg-secondary-subtle text-secondary border border-secondary">Staff</span>`;
+
+            const statusBadgeEl = document.getElementById('history-user-status-badge');
+            statusBadgeEl.innerHTML = isOnline 
+                ? `<span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-0.5"><i class="fa-solid fa-circle text-success me-1 fa-beat-fade" style="font-size: 7px;"></i>ออนไลน์</span>`
+                : `<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill px-2 py-0.5"><i class="fa-regular fa-circle me-1" style="font-size: 7px;"></i>ออฟไลน์</span>`;
+
+            const subinfo = `@${username} | สังกัด: ${deptName || '-'} | ใช้งานล่าสุด: ${formatTimeAgo(lastActiveAt)}`;
+            document.getElementById('history-user-subinfo').textContent = subinfo;
+
+            // รีเซ็ตตัวกรองและช่องค้นหา
+            activeActivityFilter = 'ALL';
+            document.getElementById('search-activity').value = '';
+            const filterBtns = document.querySelectorAll('#activity-filter-group button');
+            filterBtns.forEach(b => b.classList.remove('active'));
+            if (filterBtns[0]) filterBtns[0].classList.add('active');
+
+            historyModalInstance.show();
+
+            // ดึงประวัติกิจกรรม
+            await fetchUserActivities(userId);
+        }
+
+        async function fetchUserActivities(userId) {
+            const tbody = document.getElementById('user-activities-tbody');
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center py-5 text-muted">
+                        <div class="spinner-border spinner-border-sm text-primary me-2"></div>
+                        กำลังดึงประวัติการดำเนินการ...
+                    </td>
+                </tr>
+            `;
+
+            try {
+                const res = await fetch(`/api/users/${userId}/activities?limit=100&_t=${Date.now()}`);
+                if (!res.ok) throw new Error('Cannot fetch user activities');
+                currentUserActivities = await res.json();
+                renderActivitiesList();
+            } catch (err) {
+                console.error('Error fetching user activities:', err);
+                tbody.innerHTML = `<tr><td colspan="4" class="text-center py-4 text-danger">เกิดข้อผิดพลาดในการดึงประวัติการใช้งาน</td></tr>`;
+            }
+        }
+
+        function filterActivities(category, btnElement) {
+            activeActivityFilter = category;
+            if (btnElement) {
+                const filterBtns = document.querySelectorAll('#activity-filter-group button');
+                filterBtns.forEach(b => b.classList.remove('active'));
+                btnElement.classList.add('active');
+            }
+            renderActivitiesList();
+        }
+
+        function onActivitySearchChange() {
+            renderActivitiesList();
+        }
+
+        function renderActivitiesList() {
+            const tbody = document.getElementById('user-activities-tbody');
+            const search = document.getElementById('search-activity').value.toLowerCase().trim();
+
+            const filtered = currentUserActivities.filter(act => {
+                // Filter by category
+                if (activeActivityFilter !== 'ALL') {
+                    const targetType = String(act.target_type || '').toUpperCase();
+                    const actionName = String(act.action || '').toUpperCase();
+
+                    if (activeActivityFilter === 'AUTH' && !targetType.includes('AUTH') && !actionName.includes('LOG')) return false;
+                    if (activeActivityFilter === 'EQUIPMENT' && !targetType.includes('EQUIPMENT') && !actionName.includes('EQUIPMENT')) return false;
+                    if (activeActivityFilter === 'REPAIR' && !targetType.includes('REPAIR') && !actionName.includes('REPAIR')) return false;
+                    if (activeActivityFilter === 'AUDIT' && !targetType.includes('AUDIT') && !actionName.includes('AUDIT')) return false;
+                }
+
+                // Filter by search keyword
+                if (search) {
+                    const matchDesc = act.description && act.description.toLowerCase().includes(search);
+                    const matchAction = act.action && act.action.toLowerCase().includes(search);
+                    const matchIp = act.ip_address && act.ip_address.toLowerCase().includes(search);
+                    if (!matchDesc && !matchAction && !matchIp) return false;
+                }
+
+                return true;
+            });
+
+            document.getElementById('history-total-count').textContent = `พบ ${filtered.length} รายการ (จากทั้งหมด ${currentUserActivities.length} รายการ)`;
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="text-center py-5 text-muted">
+                            <i class="fa-solid fa-file-circle-xmark fs-2 text-muted opacity-50 mb-2 d-block"></i>
+                            ยังไม่มีประวัติการดำเนินการตามเงื่อนไขที่เลือก
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = '';
+            filtered.forEach(item => {
+                const badge = renderActivityBadge(item.action, item.target_type);
+                const dateStr = formatDateTime(item.created_at);
+                const ipDisplay = item.ip_address ? escapeHtml(item.ip_address.replace('::ffff:', '')) : '-';
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="text-nowrap text-muted"><i class="fa-regular fa-clock me-1 text-primary opacity-75"></i>${dateStr}</td>
+                        <td>${badge}</td>
+                        <td class="fw-medium text-dark">${escapeHtml(item.description || '-')}</td>
+                        <td class="text-center text-muted small"><span class="badge bg-light text-muted border">${ipDisplay}</span></td>
+                    </tr>
+                `;
+            });
+        }
+
+        function renderActivityBadge(action, targetType) {
+            const act = String(action || '').toUpperCase();
+            if (act.includes('LOGIN')) {
+                return `<span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1"><i class="fa-solid fa-right-to-bracket me-1"></i>เข้าสู่ระบบ</span>`;
+            }
+            if (act.includes('LOGOUT')) {
+                return `<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1"><i class="fa-solid fa-right-from-bracket me-1"></i>ออกจากระบบ</span>`;
+            }
+            if (act.includes('CREATE') || act.includes('ADD')) {
+                return `<span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1"><i class="fa-solid fa-plus-circle me-1"></i>เพิ่มข้อมูล</span>`;
+            }
+            if (act.includes('EDIT') || act.includes('UPDATE')) {
+                return `<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1"><i class="fa-solid fa-pen-to-square me-1"></i>แก้ไขข้อมูล</span>`;
+            }
+            if (act.includes('DELETE')) {
+                return `<span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1"><i class="fa-solid fa-trash me-1"></i>ลบข้อมูล</span>`;
+            }
+            if (act.includes('AUDIT')) {
+                return `<span class="badge bg-info-subtle text-info border border-info-subtle px-2 py-1"><i class="fa-solid fa-clipboard-check me-1"></i>การสำรวจ</span>`;
+            }
+            if (act.includes('REPAIR')) {
+                return `<span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1"><i class="fa-solid fa-wrench me-1"></i>งานซ่อม</span>`;
+            }
+            return `<span class="badge bg-light text-dark border px-2 py-1"><i class="fa-solid fa-circle-dot me-1"></i>${escapeHtml(action)}</span>`;
+        }
+
+        function formatTimeAgo(dateStr) {
+            if (!dateStr) return 'ไม่เคยเข้าใช้งาน';
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return '-';
+            const now = new Date();
+            const diffSec = Math.floor((now.getTime() - d.getTime()) / 1000);
+            if (diffSec < 60) return 'เมื่อสักครู่';
+            const diffMin = Math.floor(diffSec / 60);
+            if (diffMin < 60) return `${diffMin} นาทีที่แล้ว`;
+            const diffHour = Math.floor(diffMin / 60);
+            if (diffHour < 24) return `${diffHour} ชม. ที่แล้ว`;
+            const diffDay = Math.floor(diffHour / 24);
+            if (diffDay < 7) return `${diffDay} วันที่แล้ว`;
+            return formatDateTime(dateStr);
+        }
+
+        function formatDateTime(dateStr) {
+            if (!dateStr) return '-';
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return '-';
+            return d.toLocaleString('th-TH', {
+                year: '2-digit',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        
+
+    </script>
+</body>
+</html>

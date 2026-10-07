@@ -1,0 +1,252 @@
+<style>
+.collapsing.smooth-collapse {
+    transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.chevron-icon {
+    transition: transform 0.3s ease;
+}
+.nav-link:not(.collapsed) .chevron-icon {
+    transform: rotate(180deg);
+}
+.btn-toggle-nav a {
+    transition: color 0.2s ease, padding-left 0.2s ease;
+}
+.btn-toggle-nav a:hover {
+    color: #ffffff !important;
+    padding-left: 0.25rem;
+}
+.sidebar-user-card {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 14px;
+    padding: 10px 12px;
+    transition: all 0.25s ease;
+}
+.sidebar-user-card:hover {
+    background: rgba(255, 255, 255, 0.09);
+    border-color: rgba(6, 182, 212, 0.4);
+}
+.sidebar-avatar {
+    width: 44px;
+    height: 44px;
+    object-fit: cover;
+    border: 2px solid #06b6d4;
+}
+.badge-role-admin {
+    background-color: #dc3545;
+    color: #ffffff;
+}
+.badge-role-staff {
+    background-color: #0d6efd;
+    color: #ffffff;
+}
+.repair-badge {
+    background-color: #dc3545 !important;
+    color: #ffffff !important;
+    font-weight: 700;
+    line-height: 1;
+    min-width: 20px;
+    height: 20px;
+    border-radius: 50% !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 5px rgba(220, 53, 69, 0.45);
+    font-size: 0.72rem;
+    padding: 0 4px;
+}
+</style>
+
+<!-- Topbar สำหรับแสดงบนมือถือ -->
+<nav class="navbar navbar-dark bg-dark d-lg-none px-3 shadow-sm sticky-top">
+    <a class="navbar-brand fw-bold fs-6 d-flex align-items-center gap-2" href="dashboard.html">
+        <img src="/uploads/logo.png" alt="Logo" class="rounded-circle" style="width: 32px; height: 32px; object-fit: cover; border: 1.5px solid rgba(255,255,255,0.4);  padding: 1px;">
+        <span>ระบบครุภัณฑ์สารสนเทศ อย.</span>
+    </a>
+    <button class="btn btn-outline-light border-0" type="button" id="sidebar-toggle" aria-label="Toggle Navigation">
+        <i class="fa-solid fa-bars fs-4"></i>
+    </button>
+</nav>
+
+<div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+<!-- Sidebar หลัก -->
+<aside class="sidebar d-flex flex-column p-3 bg-dark text-white" id="main-sidebar">
+    <!-- โลโก้ และชื่อระบบส่วนหัว Sidebar -->
+    <div class="position-relative text-center pt-1 pb-2 mb-1 px-1 flex-shrink-0">
+        <button type="button" class="btn-close btn-close-white d-lg-none position-absolute top-0 end-0 m-1" id="sidebar-close" aria-label="Close"></button>
+        <a href="dashboard.html" class="d-flex flex-column align-items-center text-white text-decoration-none">
+            <div class="mb-2">
+                <img src="/uploads/logo.png" alt="Logo" class="rounded-circle shadow-sm" style="width: 72px; height: 72px; object-fit: cover; border: 2.5px solid rgba(255, 255, 255, 0.4); background: #ffffff; padding: 2px;">
+            </div>
+            <div class="fs-5 fw-bold text-center text-white lh-sm">
+                ระบบครุภัณฑ์สารสนเทศ อย.
+            </div>
+        </a>
+    </div>
+    <!-- โปรไฟล์เจ้าหน้าที่ไอที (User Profile Card) -->
+    <div class="sidebar-user-card my-2 flex-shrink-0">
+        <div class="d-flex align-items-center gap-2">
+            <div class="position-relative flex-shrink-0">
+                <img id="sidebar-user-avatar" src="/public/images/default-avatar.png" alt="Profile" 
+                    class="rounded-circle sidebar-avatar shadow-sm">
+                <span class="position-absolute bottom-0 end-0 p-1 bg-success border border-dark rounded-circle" style="width: 10px; height: 10px;" title="ออนไลน์"></span>
+            </div>
+            <div class="flex-grow-1 min-w-0">
+                <div class="d-flex align-items-center justify-content-between gap-1 mb-1">
+                    <span class="fw-bold text-white text-truncate" id="sidebar-user-fullname" style="font-size: 0.875rem;">ผู้ใช้งาน</span>
+                </div>
+              <!-- <small class="text-white-50 d-block text-truncate" style="font-size: 0.775rem;">
+                    <i class="fa-solid fa-user-gear me-1"></i><span id="sidebar-user-username">loading...</span>
+                </small> -->
+                <div class="d-flex align-items-center gap-1 flex-wrap mt-1">
+                     <span class="badge bg-info text-dark rounded-pill px-2 py-0.5 flex-shrink-0" style="font-size: 0.685rem;" id="sidebar-user-role">-</span>
+                     <span class="badge bg-info text-light border border-secondary rounded-pill px-2 py-0.5 text-truncate" style="font-size: 0.685rem; max-width: 125px;" id="sidebar-user-department" title="สังกัด">-</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <hr class="border-secondary opacity-50 my-2 flex-shrink-0">
+    
+    <!-- เมนูนำทาง (Scrollable Middle Section) -->
+    <div class="sidebar-nav-wrapper flex-grow-1 mb-2 pe-1">
+        <ul class="nav nav-pills flex-column gap-1">
+            <li class="nav-item">
+                <a href="dashboard.html" class="nav-link text-white" id="nav-dashboard">
+                    <i class="fa-solid fa-gauge me-2"></i> Dashboard
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link text-white d-flex justify-content-between align-items-center collapsed" data-bs-toggle="collapse" href="#menu-equipment" role="button" aria-expanded="false">
+                    <span><i class="fa-solid fa-box-archive me-2"></i> ทะเบียนครุภัณฑ์</span>
+                    <i class="fa-solid fa-chevron-down small chevron-icon"></i>
+                </a>
+                <div class="collapse smooth-collapse ms-3 mt-1" id="menu-equipment">
+                    <ul class="btn-toggle-nav list-unstyled fw-normal pb-1 small gap-1 d-flex flex-column">
+                        <li><a href="equipments.html" class="nav-link text-white-50" id="nav-equipments">ครุภัณฑ์ทั้งหมด</a></li>
+                        <li><a href="qrcode.html" class="nav-link text-white-50" id="nav-qrcode">QR Code</a></li>
+                    </ul>
+                </div>
+            </li>
+            <li class="nav-item">
+                <a href="audit-rounds.html" class="nav-link text-white" id="nav-audit">
+                    <i class="fa-solid fa-magnifying-glass me-2"></i> สำรวจครุภัณฑ์
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link text-white d-flex justify-content-between align-items-center collapsed" data-bs-toggle="collapse" href="#menu-repair" role="button" aria-expanded="false">
+                    <span class="d-flex align-items-center">
+                        <i class="fa-solid fa-wrench me-2"></i> งานซ่อม
+                        <span class="badge rounded-circle bg-danger text-white ms-2 repair-badge" id="repair-badge-parent" style="display: none;">0</span>
+                    </span>
+                    <i class="fa-solid fa-chevron-down small chevron-icon"></i>
+                </a>
+                <div class="collapse smooth-collapse ms-3 mt-1" id="menu-repair">
+                    <ul class="btn-toggle-nav list-unstyled fw-normal pb-1 small gap-1 d-flex flex-column">
+                        <li>
+                            <a href="repairs.html" class="nav-link text-white-50 d-flex justify-content-between align-items-center" id="nav-repairs">
+                                <span>รายการแจ้งซ่อม</span>
+                                <span class="badge rounded-circle bg-danger text-white repair-badge" id="repair-badge-child" style="display: none;">0</span>
+                            </a>
+                        </li>
+                        <li><a href="repairs-history.html" class="nav-link text-white-50" id="nav-repairs-history">ประวัติการซ่อม</a></li>
+                    </ul>
+                </div>
+            </li>
+            <li class="nav-item admin-only" id="sidebar-menu-setting" style="display: none;">
+                <a class="nav-link text-white d-flex justify-content-between align-items-center collapsed" data-bs-toggle="collapse" href="#menu-setting" role="button" aria-expanded="false">
+                    <span><i class="fa-solid fa-gear me-2"></i> ตั้งค่า</span>
+                    <i class="fa-solid fa-chevron-down small chevron-icon"></i>
+                </a>
+                <div class="collapse smooth-collapse ms-3 mt-1" id="menu-setting">
+                    <ul class="btn-toggle-nav list-unstyled fw-normal pb-1 small gap-1 d-flex flex-column">
+                        <li><a href="users.html" class="nav-link text-white-50" id="nav-users">ผู้ใช้งาน</a></li>
+                        <li><a href="system.html" class="nav-link text-white-50" id="nav-system">ระบบ</a></li>
+                    </ul>
+                </div>
+            </li>
+        </ul>
+    </div>
+
+    <!-- ส่วนท้าย Sidebar ล่างสุดเสมอ -->
+    <div class="mt-auto pt-2 flex-shrink-0">
+        <div class="text-end px-1 mb-1">
+            <span class="text-white fw-bold" style="font-size: 0.8rem; letter-spacing: 0.5px;">V 1.1</span>
+        </div>
+        <hr class="border-secondary opacity-50 my-1">
+        <div class="pt-1">
+            <button type="button" id="btn-logout" class="btn btn-outline-danger w-100 d-flex align-items-center justify-content-center gap-2">
+                <i class="fa-solid fa-right-from-bracket"></i>
+                <span>ออกจากระบบ</span>
+            </button>
+        </div>
+    </div>
+</aside>
+
+<script>
+// ฟังก์ชันสแกนและเรนเดอร์ข้อมูลผู้ใช้ รองรับการทำงานร่วมกับ SPA Router
+window.renderSidebarProfileData = function() {
+    const nameEl = document.getElementById('sidebar-user-fullname') || document.getElementById('user-display-name') || document.getElementById('user-fullname');
+    const roleBadgeEl = document.getElementById('sidebar-user-role') || document.getElementById('user-role-badge') || document.getElementById('user-role');
+    const avatarEl = document.getElementById('sidebar-user-avatar') || document.getElementById('user-avatar');
+    const usernameEl = document.getElementById('sidebar-user-username') || document.getElementById('user-username');
+
+    const rawData = localStorage.getItem('user') || localStorage.getItem('user_session') || sessionStorage.getItem('user');
+    let userData = null;
+
+    try {
+        if (rawData) userData = JSON.parse(rawData);
+    } catch (e) {
+        console.error('Parse User Error:', e);
+    }
+
+    if (!userData) {
+        if (nameEl) nameEl.textContent = 'ยังไม่ได้เข้าสู่ระบบ';
+        if (roleBadgeEl) roleBadgeEl.textContent = 'ไม่ระบุ';
+        return;
+    }
+
+    const userName = userData.fullname || userData.name || userData.username || 'ผู้ใช้งานระบบ';
+    const roleRaw = String(userData.role || 'staff').toLowerCase().trim();
+    const isAdmin = roleRaw === 'admin';
+    let roleText = 'เจ้าหน้าที่';
+    let badgeClass = 'bg-primary text-white';
+
+    if (isAdmin) {
+        roleText = 'Admin';
+        badgeClass = 'bg-danger text-white';
+    } else if (roleRaw === 'technician') {
+        roleText = 'ช่างเทคนิค';
+        badgeClass = 'bg-warning text-dark';
+    }
+
+    const avatarUrl = userData.avatar_url || (userData.avatar ? `/uploads/${userData.avatar}` : null) || userData.profile_image;
+
+    if (nameEl) nameEl.textContent = userName;
+    if (usernameEl) usernameEl.textContent = `@${userData.username || 'user'}`;
+    
+    if (roleBadgeEl) {
+        roleBadgeEl.textContent = roleText;
+        roleBadgeEl.className = `badge rounded-pill px-2 py-0.5 small fw-semibold flex-shrink-0 ${badgeClass}`;
+    }
+
+    if (avatarEl) {
+        if (avatarUrl && avatarUrl.trim() !== '' && avatarUrl !== '/public/images/default-avatar.png') {
+            avatarEl.src = avatarUrl;
+        } else {
+            avatarEl.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=0d6efd&color=fff`;
+        }
+    }
+
+    // แสดงเมนูตั้งค่า (users.html) เฉพาะผู้ใช้ที่มีสิทธิ์ Admin เท่านั้น
+    const settingMenu = document.getElementById('sidebar-menu-setting');
+    if (settingMenu) {
+        settingMenu.style.display = isAdmin ? '' : 'none';
+    }
+};
+
+// รันฟังก์ชันเมื่อโหลดคอมโพเนนต์ Sidebar นี้เข้ามา
+window.renderSidebarProfileData();
+setTimeout(window.renderSidebarProfileData, 50);
+</script>

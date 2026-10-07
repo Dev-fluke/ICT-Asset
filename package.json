@@ -1,0 +1,23 @@
+{
+  "name": "ay-inventory",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "chart.js": "^4.5.1",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "exceljs": "^4.4.0",
+    "express": "^5.2.1",
+    "multer": "^2.2.0",
+    "mysql2": "^3.23.4",
+    "pdfmake": "^0.3.11",
+    "qrcode": "^1.5.4"
+  }
+}

@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>รายการครุภัณฑ์ส่งซ่อม - ระบบบริหารจัดการครุภัณฑ์</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font: Prompt -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <!-- เรียกใช้งานไฟล์ CSS ของเราที่นี่ -->
+    <link rel="stylesheet" href="/styles.css">
+            <!-- 🔒 ดึงไฟล์ Auth Guard มาทำงานก่อนใครเพื่อน -->
+    <script src="../auth-guard.js"></script>
+     <!-- ออกจากระบบ -->
+    <script src="../global-app.js"></script> 
+</head>
+<body>
+
+    <div id="app-container" class="d-flex min-vh-100">
+        <!-- Sidebar Placeholder -->
+        <div id="sidebar-placeholder"></div>
+        <script>if (window.renderCachedSidebar) renderCachedSidebar();</script>
+
+        <!-- Main Content -->
+        <div class="main-content flex-grow-1 p-4">
+            <div id="header-placeholder"></div>
+
+            <!-- Header Title & Notification Controls -->
+            <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="bg-warning text-dark p-2 rounded-3 d-flex align-items-center justify-content-center flex-shrink-0" style="width: 45px; height: 45px;">
+                        <i class="fa-solid fa-wrench fs-4"></i>
+                    </div>
+                    <div>
+                        <h4 class="fw-bold m-0 text-dark">รายการครุภัณฑ์แจ้งซ่อม / ส่งซ่อม</h4>
+                        <small class="text-muted">จัดการสถานะและบันทึกผลการซ่อมแซมครุภัณฑ์ในระบบ</small>
+                    </div>
+                </div>
+
+                <!-- Control Bar: Notification Switches (Sound & Popup) -->
+                <div class="d-flex align-items-center gap-2 flex-wrap bg-white p-2 rounded-3 border shadow-sm">
+                    <span class="small fw-semibold text-muted me-1"><i class="fa-solid fa-bell text-warning me-1"></i>แจ้งเตือนงานใหม่:</span>
+                    
+                    <!-- Toggle Sound -->
+                    <button id="btn-toggle-sound" class="btn btn-sm d-flex align-items-center gap-1 rounded-pill px-2.5 py-1" onclick="toggleSoundNotification()" title="เปิด/ปิดเสียงแจ้งเตือนเมื่อมีงานเข้ามา">
+                        <i id="icon-sound" class="fa-solid fa-volume-high"></i>
+                        <span id="label-sound">เสียง: เปิด</span>
+                    </button>
+
+                    <!-- Toggle Popup -->
+                    <button id="btn-toggle-popup" class="btn btn-sm d-flex align-items-center gap-1 rounded-pill px-2.5 py-1" onclick="togglePopupNotification()" title="เปิด/ปิดป็อบอัพแจ้งเตือนเมื่อมีงานเข้ามา">
+                        <i id="icon-popup" class="fa-solid fa-message"></i>
+                        <span id="label-popup">ป็อบอัพ: เปิด</span>
+                    </button>
+
+                    <!-- Test Button -->
+                    <button class="btn btn-sm btn-light border text-secondary rounded-pill px-2 py-1" onclick="testNotificationAlert()" title="ทดสอบเสียงและป็อบอัพ">
+                        <i class="fa-solid fa-play me-1"></i>ทดสอบ
+                    </button>
+                </div>
+            </div>
+
+            <!-- Main Table Section -->
+            <div class="card card-custom p-4">
+                <!-- Search & Filter Bar -->
+                <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
+                    <div>
+                        <h5 class="fw-bold text-dark m-0">
+                            <i class="fa-solid fa-list-check me-2 text-primary"></i>รายการครุภัณฑ์ที่ต้องดำเนินการ
+                        </h5>
+                        <div id="role-scope-badge" class="mt-1 small"></div>
+                    </div>
+                    
+                    <div class="d-flex flex-column flex-sm-row flex-wrap gap-2 align-items-sm-center">
+                        <!-- Dropdown เลือกสังกัด (เฉพาะ Admin หรือล็อกสังกัดตนเองสำหรับ Staff) -->
+                        <div class="filter-dept-wrapper" id="dept-filter-container">
+                            <select id="filter-department" class="form-select form-select-sm" style="min-width: 170px;" onchange="onDepartmentFilterChange()">
+                                <option value="all">📍 ทุกสังกัด</option>
+                            </select>
+                        </div>
+
+                        <!-- Dropdown เลือกหน่วยงาน -->
+                        <div class="filter-org-wrapper" id="org-filter-container">
+                            <select id="filter-organization" class="form-select form-select-sm" style="min-width: 170px;" onchange="onOrganizationFilterChange()">
+                                <option value="all">🏢 ทุกหน่วยงาน</option>
+                            </select>
+                        </div>
+
+                        <!-- ค้นหาข้อความ -->
+                        <div class="input-group input-group-sm" style="min-width: 220px;">
+                            <span class="input-group-text bg-light border-end-0">
+                                <i class="fa-solid fa-magnifying-glass text-muted"></i>
+                            </span>
+                            <input type="text" id="search-table" class="form-control border-start-0" placeholder="ค้นหาชื่อ/ผู้ใช้งาน/สังกัด..." onkeyup="onSearchChange()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Table Content -->
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="text-center" style="width: 50px;">No.</th>
+                                <th style="min-width: 120px;">ชื่อเครื่อง / รหัส</th>
+                                <th style="min-width: 140px;">ผู้แจ้ง / ผู้ใช้งาน</th>
+                                <th style="min-width: 110px;">หมวดหมู่</th>
+                                <th style="min-width: 140px;">สังกัด / หน่วยงาน</th>
+                                <th style="min-width: 180px;">อาการเสีย / ปัญหาที่พบ</th>
+                                <th style="min-width: 120px;">สถานะปัจจุบัน</th>
+                                <th style="min-width: 130px;">วันที่แจ้งซ่อม</th>
+                                <th class="text-center" style="min-width: 220px;">การจัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="repairs-tbody">
+                            <tr>
+                                <td colspan="9" class="text-center py-5 text-muted">
+                                    <div class="spinner-border spinner-border-sm text-primary me-2"></div>
+                                    กำลังดึงข้อมูลรายการส่งซ่อม...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination Footer -->
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3 pt-3 border-top mt-2">
+                    <div class="d-flex align-items-center gap-2 text-muted small">
+                        <span>แสดง</span>
+                        <select id="items-per-page" class="form-select form-select-sm" style="width: 80px;" onchange="changeItemsPerPage()">
+                            <option value="10" selected>10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="all">ทั้งหมด</option>
+                        </select>
+                        <span id="pagination-info">รายการ</span>
+                    </div>
+
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination pagination-sm m-0" id="pagination-controls"></ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal บันทึกซ่อมเสร็จสิ้น -->
+    <div class="modal fade" id="completeRepairModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title fw-bold"><i class="fa-solid fa-circle-check me-2"></i>บันทึกการซ่อมแซมเสร็จสิ้น</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-2">ยืนยันการเปลี่ยนสถานะครุภัณฑ์รายการนี้เป็น <strong class="text-success">"ใช้งานปกติ"</strong></p>
+                    <div class="p-3 bg-light rounded-3 mb-3 border">
+                        <small class="text-muted d-block">ชื่อเครื่อง/รหัส:</small>
+                        <span class="fw-bold text-primary fs-6" id="modal-eq-name">-</span>
+                        <small class="text-muted d-block mt-2">ผู้แจ้ง / ผู้ใช้งาน:</small>
+                        <span class="fw-medium text-dark" id="modal-eq-user">-</span>
+                        <small class="text-muted d-block mt-2">อาการเสีย / ปัญหาที่พบ:</small>
+                        <span class="fw-semibold text-danger d-block mt-0.5" id="modal-eq-symptom">-</span>
+                    </div>
+                    <div class="mb-3">
+                        <label for="repair-note" class="form-label small fw-medium text-muted">รายละเอียดการซ่อม/หมายเหตุเพิ่มเติม:</label>
+                        <textarea id="repair-note" class="form-control form-control-sm" rows="3" placeholder="ระบุรายละเอียดการซ่อมแซม เช่น เปลี่ยนอะไหล่, ลงโปรแกรมใหม่..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="button" class="btn btn-success px-4 fw-medium" id="btn-confirm-complete" onclick="executeCompleteRepair()">บันทึกซ่อมเสร็จแล้ว</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal บันทึกซ่อมไม่สำเร็จ / จำหน่าย -->
+    <div class="modal fade" id="failRepairModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title fw-bold"><i class="fa-solid fa-triangle-exclamation me-2"></i>บันทึกผลซ่อมไม่สำเร็จ / จำหน่ายครุภัณฑ์</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger py-2 px-3 mb-3 d-flex align-items-center gap-2">
+                        <i class="fa-solid fa-circle-exclamation fs-5 flex-shrink-0"></i>
+                        <span class="small">ยืนยันการบันทึกผลการซ่อมไม่สำเร็จ ระบบจะเปลี่ยนสถานะครุภัณฑ์เป็น <strong>"จำหน่าย"</strong></span>
+                    </div>
+                    <div class="p-3 bg-light rounded-3 mb-3 border">
+                        <small class="text-muted d-block">ชื่อเครื่อง/รหัส:</small>
+                        <span class="fw-bold text-primary fs-6" id="fail-modal-eq-name">-</span>
+                        <small class="text-muted d-block mt-2">ผู้แจ้ง / ผู้ใช้งาน:</small>
+                        <span class="fw-medium text-dark" id="fail-modal-eq-user">-</span>
+                        <small class="text-muted d-block mt-2">อาการเสียเดิม:</small>
+                        <span class="fw-semibold text-danger d-block mt-0.5" id="fail-modal-eq-symptom">-</span>
+                    </div>
+                    <div class="mb-3">
+                        <label for="fail-repair-reason" class="form-label small fw-semibold text-danger">
+                            <span class="text-danger">*</span> สาเหตุที่ไม่สามารถซ่อมแซมได้ / เหตุผลในการจำหน่าย:
+                        </label>
+                        <textarea id="fail-repair-reason" class="form-control form-control-sm border-danger-subtle" rows="3" placeholder="ระบุสาเหตุที่ไม่สามารถซ่อมแซมได้ เช่น เมนบอร์ดชำรุดไม่คุ้มค่าซ่อม, อะไหล่เลิกผลิต, ชำรุดถาวร..."></textarea>
+                        <div class="form-text text-muted" style="font-size: 0.78rem;">
+                            <i class="fa-solid fa-info-circle me-1"></i>สาเหตุนี้จะถูกบันทึกลงในประวัติการซ่อมแซมและครุภัณฑ์จะถูกปรับสถานะเป็น "จำหน่าย"
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light border" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="button" class="btn btn-danger px-4 fw-medium" id="btn-confirm-fail" onclick="executeFailedRepair()">
+                        <i class="fa-solid fa-box-archive me-1"></i>ยืนยันจำหน่ายครุภัณฑ์
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Alert: New Repair Job Popup Notification -->
+    <div class="position-fixed top-0 end-0 p-3" style="z-index: 1090; margin-top: 55px;">
+        <div id="repairAlertToast" class="toast hide border-0 shadow-lg" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="false" style="min-width: 320px; max-width: 380px; border-radius: 12px; overflow: hidden;">
+            <div class="toast-header bg-warning text-dark border-0 py-2 px-3">
+                <i class="fa-solid fa-bell fa-shake me-2 text-dark fs-5"></i>
+                <strong class="me-auto fs-6" id="repair-alert-title">มีงานแจ้งซ่อมใหม่เข้ามา!</strong>
+                <span class="badge bg-danger rounded-pill px-2 py-0.5 ms-2 text-white" id="repair-alert-count">ใหม่</span>
+                <button type="button" class="btn-close ms-2" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body bg-white p-3">
+                <div class="d-flex align-items-start gap-2.5 mb-2">
+                    <div class="bg-warning-subtle text-warning-emphasis p-2 rounded-circle flex-shrink-0" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fa-solid fa-wrench"></i>
+                    </div>
+                    <div class="flex-grow-1 min-w-0">
+                        <div class="fw-bold text-dark text-truncate" id="repair-alert-eq-name">ชื่อเครื่อง: -</div>
+                        <div class="small text-muted text-truncate" id="repair-alert-dept">สังกัด: -</div>
+                        <div class="small text-danger fw-medium text-truncate mt-1" id="repair-alert-symptom">สถานะ: แจ้งซ่อม</div>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-end gap-2 mt-2 pt-2 border-top">
+                    <button type="button" class="btn btn-sm btn-light border" data-bs-dismiss="toast">รับทราบ</button>
+                    <button type="button" class="btn btn-sm btn-primary px-3" onclick="dismissAlertAndFocusTable()">
+                        <i class="fa-solid fa-arrow-down me-1"></i>ดูรายการ
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1100;">
+        <div id="liveToast" class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body" id="toast-message">ทำรายการเรียบร้อยแล้ว</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let repairEquipments = [];
+        let selectedEquipmentId = null;
+        let toastInstance = null;
+        let completeModalInstance = null;
+        let failModalInstance = null;
+        let repairAlertToastInstance = null;
+
+        let currentUser = null;
+        let isAdmin = false;
+        let allDepartments = [];
+        let allOrganizations = [];
+
+        let currentPage = 1;
+        let itemsPerPage = 10;
+
+        // การตั้งค่าเสียงและป็อบอัพแจ้งเตือน
+        let isSoundEnabled = localStorage.getItem('repair_sound_enabled') !== 'false';
+        let isPopupEnabled = localStorage.getItem('repair_popup_enabled') !== 'false';
+        let knownRepairIds = null;
+        let pollTimer = null;
+
+        window.onload = async function() {
+            toastInstance = new bootstrap.Toast(document.getElementById('liveToast'));
+            repairAlertToastInstance = new bootstrap.Toast(document.getElementById('repairAlertToast'));
+            completeModalInstance = new bootstrap.Modal(document.getElementById('completeRepairModal'));
+            failModalInstance = new bootstrap.Modal(document.getElementById('failRepairModal'));
+
+            initUserRole();
+            updateNotificationUI();
+            await loadLayout();
+            await loadFilterOptions();
+            await fetchRepairEquipments(false);
+
+            // ตรวจหาและแจ้งเตือนงานซ่อมใหม่แบบเรียลไทม์ทุกๆ 15 วินาที
+            if (pollTimer) clearInterval(pollTimer);
+            pollTimer = setInterval(() => {
+                fetchRepairEquipments(true);
+            }, 15000);
+        };
+
+        async function loadLayout() {
+            try {
+                await initSidebar('repairs.html');
+            } catch(e) { 
+                console.error('Layout error:', e); 
+            }
+        }
+
+        function initUserRole() {
+            try {
+                const raw = localStorage.getItem('user') || localStorage.getItem('user_session') || sessionStorage.getItem('user');
+                if (raw) currentUser = JSON.parse(raw);
+            } catch (e) {}
+
+            const roleRaw = String(currentUser?.role || 'staff').toLowerCase().trim();
+            isAdmin = roleRaw === 'admin';
+
+            const badgeEl = document.getElementById('role-scope-badge');
+            if (badgeEl) {
+                if (isAdmin) {
+                    badgeEl.innerHTML = `<span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1 rounded-pill"><i class="fa-solid fa-user-shield me-1"></i>สิทธิ์ Admin: แสดงทุกสังกัด/หน่วยงาน (สามารถเลือกกรองได้)</span>`;
+                } else {
+                    const myDept = currentUser?.department_name || 'หน่วยงานของตนเอง';
+                    badgeEl.innerHTML = `<span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1 rounded-pill"><i class="fa-solid fa-building-user me-1"></i>สิทธิ์ Staff: ดำเนินการได้เฉพาะสังกัด <strong>${escapeHtml(myDept)}</strong></span>`;
+                }
+            }
+        }
+
+        async function loadFilterOptions() {
+            try {
+                const [resDept, resOrg] = await Promise.all([
+                    fetch('/api/departments'),
+                    fetch('/api/organizations')
+                ]);
+
+                if (resDept.ok) allDepartments = await resDept.json();
+                if (resOrg.ok) allOrganizations = await resOrg.json();
+
+                populateDepartmentSelect();
+                populateOrganizationSelect();
+            } catch (e) {
+                console.error('Error loading filter options:', e);
+            }
+        }
+
+        function populateDepartmentSelect() {
+            const deptSelect = document.getElementById('filter-department');
+            if (!deptSelect) return;
+
+            if (!isAdmin) {
+                // Staff: ล็อกให้เป็นสังกัดของตนเอง
+                const myDeptId = currentUser?.department_id || '';
+                const myDeptName = currentUser?.department_name || 'สังกัดตนเอง';
+                deptSelect.innerHTML = `<option value="${myDeptId}" selected>📍 ${escapeHtml(myDeptName)}</option>`;
+                deptSelect.disabled = true;
+                return;
+            }
+
+            // Admin: สามารถเลือกได้ทุกสังกัด
+            let html = '<option value="all">📍 ทุกสังกัด</option>';
+            allDepartments.forEach(d => {
+                html += `<option value="${d.id}">🏢 ${escapeHtml(d.name)}</option>`;
+            });
+            deptSelect.innerHTML = html;
+            deptSelect.disabled = false;
+        }
+
+        function populateOrganizationSelect() {
+            const orgSelect = document.getElementById('filter-organization');
+            if (!orgSelect) return;
+
+            let targetDeptId = 'all';
+            if (!isAdmin) {
+                targetDeptId = String(currentUser?.department_id || '');
+            } else {
+                const deptVal = document.getElementById('filter-department')?.value || 'all';
+                targetDeptId = deptVal;
+            }
+
+            let filteredOrgs = allOrganizations;
+            if (targetDeptId !== 'all' && targetDeptId !== '') {
+                filteredOrgs = allOrganizations.filter(o => String(o.department_id) === String(targetDeptId));
+            }
+
+            let html = '<option value="all">🏢 ทุกหน่วยงาน</option>';
+            filteredOrgs.forEach(o => {
+                html += `<option value="${escapeHtml(o.name)}">${escapeHtml(o.name)}</option>`;
+            });
+            orgSelect.innerHTML = html;
+        }
+
+        function onDepartmentFilterChange() {
+            populateOrganizationSelect();
+            currentPage = 1;
+            renderTable();
+        }
+
+        function onOrganizationFilterChange() {
+            currentPage = 1;
+            renderTable();
+        }
+
+        function canOperateOnEquipment(eq) {
+            if (isAdmin) return true;
+            if (!currentUser) return false;
+            const staffDeptId = currentUser.department_id;
+            const staffDeptName = currentUser.department_name;
+
+            const matchId = staffDeptId && String(eq.department_id) === String(staffDeptId);
+            const matchName = staffDeptName && String(eq.department_name || '').trim().toLowerCase() === String(staffDeptName).trim().toLowerCase();
+            return matchId || matchName;
+        }
+
+        async function fetchRepairEquipments(isPolling = false) {
+            try {
+                const res = await fetch(`/api/equipments?_t=${Date.now()}`);
+                if (!res.ok) throw new Error('Cannot fetch equipments');
+                const data = await res.json();
+
+                const allRepairs = data.filter(e => {
+                    const statusStr = String(e.status_name || e.eq_status || e.status || '').toUpperCase();
+                    const isNormalUse = statusStr.includes('ACTIVE') || statusStr.includes('ใช้งานปกติ');
+                    const isRepairStatus = statusStr.includes('REPAIR') || 
+                                           statusStr.includes('ซ่อม') || 
+                                           statusStr.includes('ส่งซ่อม') || 
+                                           statusStr.includes('แจ้งซ่อม') ||
+                                           statusStr.includes('กำลังซ่อม');
+
+                    return isRepairStatus && !isNormalUse;
+                });
+
+                // ตรวจสอบตามสิทธิ์: Admin เห็นทั้งหมด, Staff เห็นเฉพาะสังกัดตนเอง
+                const currentScopedRepairs = allRepairs.filter(e => {
+                    if (!isAdmin) {
+                        return canOperateOnEquipment(e);
+                    }
+                    return true;
+                });
+
+                const currentIds = new Set(currentScopedRepairs.map(e => String(e.id)));
+
+                // ตรวจสอบว่ามีงานแจ้งซ่อมใหม่เข้ามาหรือไม่ (หลังจากโหลดครั้งแรก)
+                if (knownRepairIds !== null) {
+                    const newIncomingItems = currentScopedRepairs.filter(e => !knownRepairIds.has(String(e.id)));
+                    if (newIncomingItems.length > 0) {
+                        handleNewRepairJobsArrival(newIncomingItems);
+                    }
+                }
+
+                knownRepairIds = currentIds;
+                repairEquipments = allRepairs;
+                renderTable();
+
+                // อัปเดตตัวเลขแจ้งเตือนบน sidebar เมนูงานซ่อม
+                if (typeof window.updateSidebarRepairBadge === 'function') {
+                    window.updateSidebarRepairBadge();
+                }
+            } catch (err) {
+                console.error(err);
+                if (!isPolling) {
+                    document.getElementById('repairs-tbody').innerHTML = `
+                        <tr><td colspan="8" class="text-center py-4 text-danger">เกิดข้อผิดพลาดในการดึงข้อมูลรายการส่งซ่อม</td></tr>
+                    `;
+                }
+            }
+        }
+
+        function onSearchChange() { currentPage = 1; renderTable(); }
+        function changeItemsPerPage() {
+            const val = document.getElementById('items-per-page').value;
+            itemsPerPage = val === 'all' ? repairEquipments.length : parseInt(val);
+            currentPage = 1;
+            renderTable();
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('repairs-tbody');
+            const search = document.getElementById('search-table').value.toLowerCase().trim();
+            const selectedDept = document.getElementById('filter-department')?.value || 'all';
+            const selectedOrg = document.getElementById('filter-organization')?.value || 'all';
+
+            const filtered = repairEquipments.filter(e => {
+                // 1. สิทธิ์ Staff: ต้องเป็นครุภัณฑ์สังกัดตนเองเท่านั้น
+                if (!isAdmin) {
+                    if (!canOperateOnEquipment(e)) return false;
+                }
+
+                // 2. ตัวกรองสังกัด (Admin)
+                if (isAdmin && selectedDept !== 'all') {
+                    const matchDeptId = String(e.department_id) === String(selectedDept);
+                    const matchDeptName = String(e.department_name || '').trim() === String(selectedDept).trim();
+                    if (!matchDeptId && !matchDeptName) return false;
+                }
+
+                // 3. ตัวกรองหน่วยงาน
+                if (selectedOrg !== 'all') {
+                    const eqOrg = String(e.organization_name || '').trim();
+                    const eqOrgId = String(e.organization_id || '').trim();
+                    if (eqOrg !== selectedOrg && eqOrgId !== selectedOrg) return false;
+                }
+
+                // 4. การค้นหาคำค้น (รวมค้นหาจากชื่อเครื่อง, ผู้ใช้งาน, ผู้แจ้งซ่อม, อาการเสีย, สังกัด, หมวดหมู่)
+                const symptomSearch = String(e.repair_symptom || e.symptom || '').toLowerCase();
+                const reporterSearch = String(e.repair_reporter_name || e.reporter_name || '').toLowerCase();
+                return !search || 
+                    (e.computer_name && e.computer_name.toLowerCase().includes(search)) || 
+                    (e.user_name && e.user_name.toLowerCase().includes(search)) ||
+                    (reporterSearch && reporterSearch.includes(search)) ||
+                    (symptomSearch && symptomSearch.includes(search)) ||
+                    (e.department_name && e.department_name.toLowerCase().includes(search)) ||
+                    (e.organization_name && e.organization_name.toLowerCase().includes(search)) ||
+                    (e.category_name && e.category_name.toLowerCase().includes(search));
+            });
+
+            // ซิงค์จำนวน Badge บน Sidebar ให้ตรงกับงานของสิทธิ์ปัจจุบันทันที
+            const isDefaultView = (!search && selectedOrg === 'all' && (isAdmin ? selectedDept === 'all' : true));
+            if (isDefaultView && typeof window.updateSidebarRepairBadge === 'function') {
+                window.updateSidebarRepairBadge(filtered.length);
+            }
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-muted">ไม่พบรายการครุภัณฑ์ส่งซ่อมตามเงื่อนไขที่กำหนด</td></tr>`;
+                renderPagination(0, 0, 0, 0);
+                return;
+            }
+
+            const limit = itemsPerPage === 'all' ? filtered.length : itemsPerPage;
+            const totalPages = Math.ceil(filtered.length / limit) || 1;
+            if (currentPage > totalPages) currentPage = totalPages;
+
+            const startIndex = (currentPage - 1) * limit;
+            const endIndex = Math.min(startIndex + limit, filtered.length);
+            const paginatedItems = filtered.slice(startIndex, endIndex);
+
+            tbody.innerHTML = '';
+            paginatedItems.forEach((e, index) => {
+                const globalIndex = startIndex + index + 1;
+                const currentStatus = e.status_name || e.eq_status || e.status || 'แจ้งซ่อม';
+                const statusUpper = String(currentStatus).toUpperCase();
+
+                const isNormalUse = statusUpper.includes('ACTIVE') || statusUpper.includes('ใช้งานปกติ');
+                const isInProgress = statusUpper.includes('กำลังซ่อม') || statusUpper.includes('IN_PROGRESS');
+                const isPermitted = canOperateOnEquipment(e);
+
+                let actionBtnHtml = '';
+                if (!isPermitted) {
+                    actionBtnHtml = `<button class="btn btn-sm btn-light text-muted fw-medium rounded-pill px-3 shadow-sm border" disabled title="สิทธิ์ดำเนินการเฉพาะหน่วยงานต้นสังกัด"><i class="fa-solid fa-lock me-1"></i>ไม่มีสิทธิ์</button>`;
+                } else if (isNormalUse) {
+                    actionBtnHtml = `<button class="btn btn-sm btn-secondary fw-medium rounded-pill px-3 shadow-sm" disabled><i class="fa-solid fa-check me-1"></i>ซ่อมแล้ว</button>`;
+                } else if (isInProgress) {
+                    actionBtnHtml = `
+                        <div class="d-inline-flex flex-wrap gap-1.5 justify-content-center">
+                            <button class="btn btn-sm btn-success fw-medium rounded-pill px-2.5 py-1 shadow-sm" onclick="openCompleteModal('${e.id}')" title="ซ่อมแซมเสร็จสิ้น กลับมาใช้งานปกติ">
+                                <i class="fa-solid fa-circle-check me-1"></i>ซ่อมเสร็จแล้ว
+                            </button>
+                            <button class="btn btn-sm btn-danger fw-medium rounded-pill px-2.5 py-1 shadow-sm" onclick="openFailedRepairModal('${e.id}')" title="ซ่อมไม่สำเร็จ เปลี่ยนสถานะเป็นจำหน่าย">
+                                <i class="fa-solid fa-circle-xmark me-1"></i>ซ่อมไม่สำเร็จ
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    actionBtnHtml = `<button class="btn btn-sm btn-warning fw-medium rounded-pill px-3 shadow-sm" onclick="acceptRepairTask('${e.id}', this)"><i class="fa-solid fa-wrench me-1"></i>รับงานซ่อม</button>`;
+                }
+
+                const symptomText = e.repair_symptom || e.symptom || '-';
+                const reporterText = e.repair_reporter_name || e.reporter_name || e.user_name || '-';
+                const repairDate = e.repair_created_at || e.updated_at || e.created_at;
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="text-center fw-medium text-muted">${globalIndex}</td>
+                        <td class="fw-bold text-primary">${escapeHtml(e.computer_name)}</td>
+                        <td>
+                            <div class="fw-medium text-dark">${escapeHtml(reporterText)}</div>
+                            ${e.user_name && e.repair_reporter_name && e.user_name !== e.repair_reporter_name ? `<small class="text-muted d-block" style="font-size: 0.75rem;">(ผู้ถือครอง: ${escapeHtml(e.user_name)})</small>` : ''}
+                        </td>
+                        <td><span class="badge bg-light text-secondary border px-2 py-1">${escapeHtml(e.category_name || '-')}</span></td>
+                        <td>
+                            <small class="d-block text-dark fw-medium">${escapeHtml(e.department_name || '-')}</small>
+                            <small class="text-muted">${escapeHtml(e.organization_name || '-')}</small>
+                        </td>
+                        <td>
+                            ${symptomText !== '-' ? `
+                                <div class="d-inline-flex align-items-start gap-1.5 text-danger fw-semibold px-2.5 py-1 rounded-2 bg-danger-subtle border border-danger-subtle small text-start">
+                                    <i class="fa-solid fa-triangle-exclamation mt-0.5 flex-shrink-0"></i>
+                                    <span class="text-wrap" style="max-width: 240px; line-height: 1.35;">${escapeHtml(symptomText)}</span>
+                                </div>
+                            ` : '<span class="text-muted">-</span>'}
+                        </td>
+                        <td>${renderRepairStatusBadge(currentStatus)}</td>
+                        <td>
+                            <div class="text-dark fw-medium" style="font-size: 0.85rem;"><i class="fa-regular fa-calendar-check text-muted me-1"></i>${formatDateTime(repairDate)}</div>
+                        </td>
+                        <td class="text-center">${actionBtnHtml}</td>
+                    </tr>
+                `;
+            });
+
+            renderPagination(filtered.length, startIndex + 1, endIndex, totalPages);
+        }
+
+        function renderRepairStatusBadge(status) {
+            const statusUpper = String(status).toUpperCase();
+            if (statusUpper.includes('ACTIVE') || statusUpper.includes('ใช้งานปกติ')) {
+                return `<span class="badge bg-success-subtle text-success border border-success status-badge"><i class="fa-solid fa-circle-check me-1"></i>ใช้งานปกติ</span>`;
+            } else if (statusUpper.includes('IN_PROGRESS') || statusUpper.includes('กำลังซ่อม')) {
+                return `<span class="badge bg-primary-subtle text-primary border border-primary status-badge"><i class="fa-solid fa-screwdriver-wrench me-1"></i>กำลังซ่อม</span>`;
+            } else if (statusUpper.includes('จำหน่าย') || statusUpper.includes('RETIRED') || statusUpper.includes('DISPOSED')) {
+                return `<span class="badge bg-danger-subtle text-danger border border-danger status-badge"><i class="fa-solid fa-box-archive me-1"></i>จำหน่าย</span>`;
+            }
+            return `<span class="badge bg-warning-subtle text-dark border border-warning status-badge"><i class="fa-solid fa-clock-rotate-left me-1"></i>รอดำเนินการรับซ่อม</span>`;
+        }
+
+        function renderPagination(totalItems, start, end, totalPages) {
+            const paginationControls = document.getElementById('pagination-controls');
+            const paginationInfo = document.getElementById('pagination-info');
+
+            if (totalItems === 0) {
+                paginationInfo.textContent = 'แสดง 0 ถึง 0 จากทั้งหมด 0 รายการ';
+                paginationControls.innerHTML = '';
+                return;
+            }
+
+            paginationInfo.textContent = `แสดง ${start} ถึง ${end} จากทั้งหมด ${totalItems} รายการ`;
+
+            let html = `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}"><a class="page-link" href="#" onclick="goToPage(${currentPage - 1}); return false;"><i class="fa-solid fa-chevron-left"></i></a></li>`;
+
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1)) {
+                    html += `<li class="page-item ${i === currentPage ? 'active' : ''}"><a class="page-link" href="#" onclick="goToPage(${i}); return false;">${i}</a></li>`;
+                } else if (i === currentPage - 2 || i === currentPage + 2) {
+                    html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+                }
+            }
+
+            html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}"><a class="page-link" href="#" onclick="goToPage(${currentPage + 1}); return false;"><i class="fa-solid fa-chevron-right"></i></a></li>`;
+            paginationControls.innerHTML = html;
+        }
+
+        function goToPage(page) { currentPage = page; renderTable(); }
+
+        // 1. รับงานซ่อม
+        async function acceptRepairTask(id, btnElement) {
+            const targetItem = repairEquipments.find(e => e.id == id);
+            if (!targetItem || !canOperateOnEquipment(targetItem)) {
+                alert('คุณไม่มีสิทธิ์ดำเนินการกับครุภัณฑ์นอกสังกัดตนเอง');
+                return;
+            }
+
+            btnElement.disabled = true;
+            btnElement.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>กำลังบันทึก...`;
+
+            const operatorName = currentUser?.fullname || currentUser?.name || currentUser?.username || 'ช่างเทคนิค';
+            const payload = { 
+                status: 'กำลังซ่อม',
+                note: 'เจ้าหน้าที่รับเรื่องและกำลังดำเนินการตรวจสอบ',
+                repaired_by: operatorName
+            };
+
+            try {
+                const res = await fetch(`/api/equipments/${id}/repair-status`, {
+                    method: 'PUT',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'x-user-id': currentUser?.id || '',
+                        'x-username': currentUser?.username || '',
+                        'x-fullname': operatorName
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    showToast('รับงานซ่อมเรียบร้อยแล้ว (สถานะ: กำลังซ่อม)', 'bg-primary');
+                    await fetchRepairEquipments(); // โหลดข้อมูลสดใหม่จาก Server
+                } else {
+                    showToast('เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'bg-danger');
+                    btnElement.disabled = false;
+                    btnElement.innerHTML = `<i class="fa-solid fa-wrench me-1"></i>รับงานซ่อม`;
+                }
+            } catch (err) {
+                console.error('Error accepting repair task:', err);
+                showToast('ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'bg-danger');
+                btnElement.disabled = false;
+                btnElement.innerHTML = `<i class="fa-solid fa-wrench me-1"></i>รับงานซ่อม`;
+            }
+        }
+
+        // 2. เปิด Modal ซ่อมเสร็จแล้ว
+        function openCompleteModal(id) {
+            const targetItem = repairEquipments.find(e => e.id == id);
+            if (!targetItem || !canOperateOnEquipment(targetItem)) {
+                alert('คุณไม่มีสิทธิ์ดำเนินการกับครุภัณฑ์นอกสังกัดตนเอง');
+                return;
+            }
+
+            selectedEquipmentId = id;
+            document.getElementById('modal-eq-name').textContent = targetItem.computer_name || '-';
+            const reporterStr = targetItem.repair_reporter_name || targetItem.reporter_name || targetItem.user_name || '-';
+            document.getElementById('modal-eq-user').textContent = reporterStr;
+            const symptomStr = targetItem.repair_symptom || targetItem.symptom || '-';
+            const symptomEl = document.getElementById('modal-eq-symptom');
+            if (symptomEl) symptomEl.textContent = symptomStr;
+            document.getElementById('repair-note').value = '';
+            
+            completeModalInstance.show();
+        }
+
+        // 3. ยืนยันซ่อมเสร็จแล้ว -> เปลี่ยนสถานะเป็น "ใช้งานปกติ"
+        async function executeCompleteRepair() {
+            if (!selectedEquipmentId) return;
+
+            const btnConfirm = document.getElementById('btn-confirm-complete');
+            const note = document.getElementById('repair-note').value.trim();
+            
+            btnConfirm.disabled = true;
+            btnConfirm.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>กำลังบันทึก...`;
+
+            const operatorName = currentUser?.fullname || currentUser?.name || currentUser?.username || 'ช่างเทคนิค';
+            const payload = { 
+                status: 'ใช้งานปกติ',
+                note: note || 'ซ่อมแซมเสร็จสิ้น ใช้งานได้ปกติ',
+                repaired_by: operatorName
+            };
+
+            try {
+                const res = await fetch(`/api/equipments/${selectedEquipmentId}/repair-status`, {
+                    method: 'PUT',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'x-user-id': currentUser?.id || '',
+                        'x-username': currentUser?.username || '',
+                        'x-fullname': operatorName
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    completeModalInstance.hide();
+                    showToast('บันทึกสถานะเป็น "ใช้งานปกติ" เรียบร้อยแล้ว', 'bg-success');
+                    await fetchRepairEquipments(); // โหลดข้อมูลสดใหม่จาก Server
+                    if (typeof window.updateSidebarRepairBadge === 'function') {
+                        window.updateSidebarRepairBadge();
+                    }
+                } else {
+                    showToast('เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'bg-danger');
+                }
+            } catch (err) {
+                console.error('Error completing repair task:', err);
+                showToast('ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'bg-danger');
+            } finally {
+                btnConfirm.disabled = false;
+                btnConfirm.innerHTML = '<i class="fa-solid fa-circle-check me-1"></i>บันทึกซ่อมเสร็จแล้ว';
+            }
+        }
+
+        // 4. เปิด Modal ซ่อมไม่สำเร็จ / จำหน่าย
+        function openFailedRepairModal(id) {
+            const targetItem = repairEquipments.find(e => e.id == id);
+            if (!targetItem || !canOperateOnEquipment(targetItem)) {
+                alert('คุณไม่มีสิทธิ์ดำเนินการกับครุภัณฑ์นอกสังกัดตนเอง');
+                return;
+            }
+
+            selectedEquipmentId = id;
+            document.getElementById('fail-modal-eq-name').textContent = targetItem.computer_name || '-';
+            const reporterStr = targetItem.repair_reporter_name || targetItem.reporter_name || targetItem.user_name || '-';
+            document.getElementById('fail-modal-eq-user').textContent = reporterStr;
+            const symptomStr = targetItem.repair_symptom || targetItem.symptom || '-';
+            const symptomEl = document.getElementById('fail-modal-eq-symptom');
+            if (symptomEl) symptomEl.textContent = symptomStr;
+            document.getElementById('fail-repair-reason').value = '';
+            
+            failModalInstance.show();
+        }
+
+        // 5. ยืนยันซ่อมไม่สำเร็จ -> เปลี่ยนสถานะเป็น "จำหน่าย"
+        async function executeFailedRepair() {
+            if (!selectedEquipmentId) return;
+
+            const btnConfirm = document.getElementById('btn-confirm-fail');
+            const reason = document.getElementById('fail-repair-reason').value.trim();
+
+            if (!reason) {
+                alert('กรุณาระบุสาเหตุที่ไม่สามารถซ่อมแซมได้ / เหตุผลในการจำหน่าย');
+                document.getElementById('fail-repair-reason').focus();
+                return;
+            }
+
+            btnConfirm.disabled = true;
+            btnConfirm.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>กำลังบันทึก...`;
+
+            const operatorName = currentUser?.fullname || currentUser?.name || currentUser?.username || 'ช่างเทคนิค';
+            const payload = { 
+                status: 'จำหน่าย',
+                note: `ซ่อมไม่สำเร็จ: ${reason}`,
+                repaired_by: operatorName
+            };
+
+            try {
+                const res = await fetch(`/api/equipments/${selectedEquipmentId}/repair-status`, {
+                    method: 'PUT',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'x-user-id': currentUser?.id || '',
+                        'x-username': currentUser?.username || '',
+                        'x-fullname': operatorName
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    failModalInstance.hide();
+                    showToast('บันทึกสถานะเป็น "จำหน่าย" เรียบร้อยแล้ว', 'bg-warning text-dark');
+                    await fetchRepairEquipments(); // โหลดข้อมูลสดใหม่จาก Server
+                    if (typeof window.updateSidebarRepairBadge === 'function') {
+                        window.updateSidebarRepairBadge();
+                    }
+                } else {
+                    showToast('เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'bg-danger');
+                }
+            } catch (err) {
+                console.error('Error failing repair task:', err);
+                showToast('ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'bg-danger');
+            } finally {
+                btnConfirm.disabled = false;
+                btnConfirm.innerHTML = '<i class="fa-solid fa-box-archive me-1"></i>ยืนยันจำหน่ายครุภัณฑ์';
+            }
+        }
+
+        function showToast(msg, bgClass = 'bg-success') {
+            const toastEl = document.getElementById('liveToast');
+            toastEl.className = `toast align-items-center ${bgClass} border-0`;
+            document.getElementById('toast-message').textContent = msg;
+            toastInstance.show();
+        }
+
+        function formatDateTime(dateStr) {
+            if (!dateStr) return '-';
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return '-';
+            return d.toLocaleString('th-TH', { 
+                year: '2-digit', 
+                month: '2-digit', 
+                day: '2-digit', 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        // ================= Notification & Alert Functions =================
+        function handleNewRepairJobsArrival(newItems) {
+            const newest = newItems[0];
+            const count = newItems.length;
+
+            // 1. เล่นเสียงแจ้งเตือน (ถ้าเปิดใช้งาน)
+            if (isSoundEnabled) {
+                playNotificationSound();
+            }
+
+            // 2. แสดงป็อบอัพแจ้งเตือน (ถ้าเปิดใช้งาน)
+            if (isPopupEnabled && repairAlertToastInstance) {
+                const symptomStr = newest.repair_symptom || newest.symptom || newest.status || 'แจ้งซ่อม';
+                const reporterStr = newest.repair_reporter_name || newest.reporter_name || newest.user_name || '-';
+                document.getElementById('repair-alert-title').textContent = 'มีงานแจ้งซ่อมใหม่เข้ามา!';
+                document.getElementById('repair-alert-count').textContent = `ใหม่ +${count}`;
+                document.getElementById('repair-alert-eq-name').textContent = 'ชื่อเครื่อง: ' + (newest.computer_name || '-');
+                document.getElementById('repair-alert-dept').textContent = 'สังกัด: ' + (newest.department_name || '-') + ` (ผู้แจ้ง: ${reporterStr})`;
+                document.getElementById('repair-alert-symptom').textContent = 'อาการเสีย: ' + symptomStr;
+                
+                repairAlertToastInstance.show();
+            }
+        }
+
+        // เล่นเสียงแจ้งเตือน (Chime / Bell Sound) ผ่าน Web Audio API โดยไม่ต้องพึ่งพาไฟล์ภายนอก
+        function playNotificationSound() {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                const ctx = new AudioCtx();
+                if (ctx.state === 'suspended') {
+                    ctx.resume();
+                }
+
+                // Tone 1: High crisp ding (880 Hz / A5)
+                const osc1 = ctx.createOscillator();
+                const gain1 = ctx.createGain();
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(880, ctx.currentTime);
+                gain1.gain.setValueAtTime(0.25, ctx.currentTime);
+                gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+                osc1.connect(gain1);
+                gain1.connect(ctx.destination);
+                osc1.start(ctx.currentTime);
+                osc1.stop(ctx.currentTime + 0.3);
+
+                // Tone 2: Harmonious chime (1174.66 Hz / D6)
+                const osc2 = ctx.createOscillator();
+                const gain2 = ctx.createGain();
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(1174.66, ctx.currentTime + 0.12);
+                gain2.gain.setValueAtTime(0.3, ctx.currentTime + 0.12);
+                gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.65);
+                osc2.connect(gain2);
+                gain2.connect(ctx.destination);
+                osc2.start(ctx.currentTime + 0.12);
+                osc2.stop(ctx.currentTime + 0.65);
+            } catch (e) {
+                console.warn('Audio play error:', e);
+            }
+        }
+
+        function updateNotificationUI() {
+            const btnSound = document.getElementById('btn-toggle-sound');
+            const iconSound = document.getElementById('icon-sound');
+            const labelSound = document.getElementById('label-sound');
+
+            if (btnSound) {
+                if (isSoundEnabled) {
+                    btnSound.className = 'btn btn-sm btn-primary d-flex align-items-center gap-1 rounded-pill px-2.5 py-1 shadow-sm';
+                    iconSound.className = 'fa-solid fa-volume-high';
+                    labelSound.textContent = 'เสียง: เปิด';
+                } else {
+                    btnSound.className = 'btn btn-sm btn-outline-secondary d-flex align-items-center gap-1 rounded-pill px-2.5 py-1';
+                    iconSound.className = 'fa-solid fa-volume-xmark';
+                    labelSound.textContent = 'เสียง: ปิด';
+                }
+            }
+
+            const btnPopup = document.getElementById('btn-toggle-popup');
+            const iconPopup = document.getElementById('icon-popup');
+            const labelPopup = document.getElementById('label-popup');
+
+            if (btnPopup) {
+                if (isPopupEnabled) {
+                    btnPopup.className = 'btn btn-sm btn-success d-flex align-items-center gap-1 rounded-pill px-2.5 py-1 shadow-sm';
+                    iconPopup.className = 'fa-solid fa-message';
+                    labelPopup.textContent = 'ป็อบอัพ: เปิด';
+                } else {
+                    btnPopup.className = 'btn btn-sm btn-outline-secondary d-flex align-items-center gap-1 rounded-pill px-2.5 py-1';
+                    iconPopup.className = 'fa-solid fa-comment-slash';
+                    labelPopup.textContent = 'ป็อบอัพ: ปิด';
+                }
+            }
+        }
+
+        function toggleSoundNotification() {
+            isSoundEnabled = !isSoundEnabled;
+            localStorage.setItem('repair_sound_enabled', isSoundEnabled);
+            updateNotificationUI();
+            if (isSoundEnabled) {
+                playNotificationSound();
+                showToast('เปิดเสียงแจ้งเตือนงานซ่อมเรียบร้อยแล้ว', 'bg-primary');
+            } else {
+                showToast('ปิดเสียงแจ้งเตือนงานซ่อมเรียบร้อยแล้ว', 'bg-secondary');
+            }
+        }
+
+        function togglePopupNotification() {
+            isPopupEnabled = !isPopupEnabled;
+            localStorage.setItem('repair_popup_enabled', isPopupEnabled);
+            updateNotificationUI();
+            if (isPopupEnabled) {
+                showToast('เปิดป็อบอัพแจ้งเตือนงานซ่อมเรียบร้อยแล้ว', 'bg-success');
+            } else {
+                showToast('ปิดป็อบอัพแจ้งเตือนงานซ่อมเรียบร้อยแล้ว', 'bg-secondary');
+            }
+        }
+
+        function testNotificationAlert() {
+            // เล่นเสียง
+            playNotificationSound();
+
+            // แสดงป็อบอัพ
+            document.getElementById('repair-alert-title').textContent = 'ทดสอบการแจ้งเตือนงานซ่อม';
+            document.getElementById('repair-alert-count').textContent = 'ตัวอย่าง';
+            document.getElementById('repair-alert-eq-name').textContent = 'ชื่อเครื่อง: PC-OFFICE-01 (ทดสอบ)';
+            document.getElementById('repair-alert-dept').textContent = 'สังกัด: ฝ่ายเทคโนโลยีสารสนเทศ (ทดสอบ)';
+            document.getElementById('repair-alert-symptom').textContent = 'สถานะ: แจ้งซ่อม (เปิดเครื่องไม่ติด)';
+
+            if (repairAlertToastInstance) {
+                repairAlertToastInstance.show();
+            }
+        }
+
+        function dismissAlertAndFocusTable() {
+            if (repairAlertToastInstance) {
+                repairAlertToastInstance.hide();
+            }
+            const tableCard = document.querySelector('.card.card-custom');
+            if (tableCard) {
+                tableCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ประวัติการซ่อมแซม - ระบบบริหารจัดการครุภัณฑ์</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font: Prompt -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <!-- เรียกใช้งานไฟล์ CSS ของเราที่นี่ -->
+    <link rel="stylesheet" href="/styles.css">
+        <!-- 🔒 ดึงไฟล์ Auth Guard มาทำงานก่อนใครเพื่อน -->
+    <script src="../auth-guard.js"></script>
+     <!-- ออกจากระบบ -->
+    <script src="../global-app.js"></script> 
+   
+    
+    <!-- <style>
+        body { font-family: 'Prompt', sans-serif; background-color: #f8fafc; }
+        .card-custom { border-radius: 12px; border: none; box-shadow: 0 4px 20px rgba(0,0,0,0.03); }
+        .status-badge { font-size: 0.75rem; padding: 5px 12px; border-radius: 20px; font-weight: 500; }
+        #sidebar-placeholder { min-width: 260px; max-width: 260px; background-color: #1e293b; color: #f8fafc; }
+        .sidebar { min-height: 100vh; background-color: #1e293b !important; }
+        .sidebar .nav-link { color: #94a3b8 !important; border-radius: 8px; padding: 10px 14px; font-size: 0.95rem; transition: all 0.2s ease-in-out; }
+        .sidebar .nav-link:hover { color: #ffffff !important; background-color: rgba(255, 255, 255, 0.08); }
+        .sidebar .nav-link.active, .sidebar .btn-toggle-nav a.nav-link.active { background-color: #0d6efd !important; color: #ffffff !important; font-weight: 500 !important; box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3); }
+    </style> -->
+</head>
+<body>
+
+    <div id="app-container" class="d-flex min-vh-100">
+        <!-- Sidebar Placeholder -->
+        <div id="sidebar-placeholder"></div>
+        <script>if (window.renderCachedSidebar) renderCachedSidebar();</script>
+
+        <!-- Main Content -->
+        <div class="main-content flex-grow-1 p-4">
+            <div id="header-placeholder"></div>
+
+            <!-- Header Title -->
+            <div class="d-flex align-items-center justify-content-between mb-4">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="bg-primary text-white p-2 rounded-3 d-flex align-items-center justify-content-center" style="width: 45px; height: 45px;">
+                        <i class="fa-solid fa-clock-rotate-left fs-4"></i>
+                    </div>
+                    <div>
+                        <h4 class="fw-bold m-0 text-dark">ประวัติบันทึกการซ่อมแซม</h4>
+                        <small class="text-muted">ตรวจสอบบันทึกและประวัติการดำเนินการซ่อมครุภัณฑ์ย้อนหลัง</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Table Section -->
+            <div class="card card-custom p-4">
+                <!-- Search & Filter Bar -->
+                <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
+                    <div>
+                        <h5 class="fw-bold text-dark m-0">
+                            <i class="fa-solid fa-history me-2 text-primary"></i>รายการประวัติทั้งหมด
+                        </h5>
+                        <div id="role-scope-badge" class="mt-1 small"></div>
+                    </div>
+                    
+                    <div class="d-flex flex-column flex-sm-row flex-wrap gap-2 align-items-sm-center">
+                        <!-- Dropdown เลือกสังกัด (เฉพาะ Admin หรือล็อกสังกัดตนเองสำหรับ Staff) -->
+                        <div class="filter-dept-wrapper" id="dept-filter-container">
+                            <select id="filter-department" class="form-select form-select-sm" style="min-width: 170px;" onchange="onDepartmentFilterChange()">
+                                <option value="all">📍 ทุกสังกัด</option>
+                            </select>
+                        </div>
+
+                        <!-- Dropdown เลือกหน่วยงาน -->
+                        <div class="filter-org-wrapper" id="org-filter-container">
+                            <select id="filter-organization" class="form-select form-select-sm" style="min-width: 170px;" onchange="onOrganizationFilterChange()">
+                                <option value="all">🏢 ทุกหน่วยงาน</option>
+                            </select>
+                        </div>
+
+                        <!-- ค้นหาข้อความ -->
+                        <div class="input-group input-group-sm" style="min-width: 220px;">
+                            <span class="input-group-text bg-light border-end-0">
+                                <i class="fa-solid fa-magnifying-glass text-muted"></i>
+                            </span>
+                            <input type="text" id="search-table" class="form-control border-start-0" placeholder="ค้นหาชื่อ/ผู้ใช้งาน/หมายเหตุ..." onkeyup="onSearchChange()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Table Content -->
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="text-center" style="width: 60px;">No.</th>
+                                <th>ชื่อเครื่อง / รหัส</th>
+                                <th>ผู้ใช้งาน / สังกัด</th>
+                                <th>สถานะการซ่อม</th>
+                                <th>รายละเอียด / หมายเหตุ</th>
+                                <th>ผู้บันทึก</th>
+                                <th>วันที่ดำเนินการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-tbody">
+                            <tr>
+                                <td colspan="7" class="text-center py-5 text-muted">
+                                    <div class="spinner-border spinner-border-sm text-primary me-2"></div>
+                                    กำลังดึงข้อมูลประวัติการซ่อม...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination Footer -->
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3 pt-3 border-top mt-2">
+                    <div class="d-flex align-items-center gap-2 text-muted small">
+                        <span>แสดง</span>
+                        <select id="items-per-page" class="form-select form-select-sm" style="width: 80px;" onchange="changeItemsPerPage()">
+                            <option value="10" selected>10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="all">ทั้งหมด</option>
+                        </select>
+                        <span id="pagination-info">รายการ</span>
+                    </div>
+
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination pagination-sm m-0" id="pagination-controls"></ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let historyLogs = [];
+        let currentPage = 1;
+        let itemsPerPage = 10;
+
+        let currentUser = null;
+        let isAdmin = false;
+        let allDepartments = [];
+        let allOrganizations = [];
+
+        window.onload = async function() {
+            initUserRole();
+            await loadLayout();
+            await loadFilterOptions();
+            await fetchRepairHistory();
+        };
+
+        async function loadLayout() {
+            try {
+                await initSidebar('repairs-history.html');
+            } catch(e) { 
+                console.error('Layout error:', e); 
+            }
+        }
+
+        function initUserRole() {
+            try {
+                const raw = localStorage.getItem('user') || localStorage.getItem('user_session') || sessionStorage.getItem('user');
+                if (raw) currentUser = JSON.parse(raw);
+            } catch (e) {}
+
+            const roleRaw = String(currentUser?.role || 'staff').toLowerCase().trim();
+            isAdmin = roleRaw === 'admin';
+
+            const badgeEl = document.getElementById('role-scope-badge');
+            if (badgeEl) {
+                if (isAdmin) {
+                    badgeEl.innerHTML = `<span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1 rounded-pill"><i class="fa-solid fa-user-shield me-1"></i>สิทธิ์ Admin: แสดงทุกสังกัด/หน่วยงาน (สามารถเลือกกรองได้)</span>`;
+                } else {
+                    const myDept = currentUser?.department_name || 'หน่วยงานของตนเอง';
+                    badgeEl.innerHTML = `<span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1 rounded-pill"><i class="fa-solid fa-building-user me-1"></i>สิทธิ์ Staff: แสดงเฉพาะประวัติของสังกัด <strong>${escapeHtml(myDept)}</strong></span>`;
+                }
+            }
+        }
+
+        async function loadFilterOptions() {
+            try {
+                const [resDept, resOrg] = await Promise.all([
+                    fetch('/api/departments'),
+                    fetch('/api/organizations')
+                ]);
+
+                if (resDept.ok) allDepartments = await resDept.json();
+                if (resOrg.ok) allOrganizations = await resOrg.json();
+
+                populateDepartmentSelect();
+                populateOrganizationSelect();
+            } catch (e) {
+                console.error('Error loading filter options:', e);
+            }
+        }
+
+        function populateDepartmentSelect() {
+            const deptSelect = document.getElementById('filter-department');
+            if (!deptSelect) return;
+
+            if (!isAdmin) {
+                const myDeptId = currentUser?.department_id || '';
+                const myDeptName = currentUser?.department_name || 'สังกัดตนเอง';
+                deptSelect.innerHTML = `<option value="${myDeptId}" selected>📍 ${escapeHtml(myDeptName)}</option>`;
+                deptSelect.disabled = true;
+                return;
+            }
+
+            let html = '<option value="all">📍 ทุกสังกัด</option>';
+            allDepartments.forEach(d => {
+                html += `<option value="${d.id}">🏢 ${escapeHtml(d.name)}</option>`;
+            });
+            deptSelect.innerHTML = html;
+            deptSelect.disabled = false;
+        }
+
+        function populateOrganizationSelect() {
+            const orgSelect = document.getElementById('filter-organization');
+            if (!orgSelect) return;
+
+            let targetDeptId = 'all';
+            if (!isAdmin) {
+                targetDeptId = String(currentUser?.department_id || '');
+            } else {
+                const deptVal = document.getElementById('filter-department')?.value || 'all';
+                targetDeptId = deptVal;
+            }
+
+            let filteredOrgs = allOrganizations;
+            if (targetDeptId !== 'all' && targetDeptId !== '') {
+                filteredOrgs = allOrganizations.filter(o => String(o.department_id) === String(targetDeptId));
+            }
+
+            let html = '<option value="all">🏢 ทุกหน่วยงาน</option>';
+            filteredOrgs.forEach(o => {
+                html += `<option value="${escapeHtml(o.name)}">${escapeHtml(o.name)}</option>`;
+            });
+            orgSelect.innerHTML = html;
+        }
+
+        function onDepartmentFilterChange() {
+            populateOrganizationSelect();
+            currentPage = 1;
+            renderTable();
+        }
+
+        function onOrganizationFilterChange() {
+            currentPage = 1;
+            renderTable();
+        }
+
+        function canViewHistoryItem(item) {
+            if (isAdmin) return true;
+            if (!currentUser) return false;
+            const staffDeptId = currentUser.department_id;
+            const staffDeptName = currentUser.department_name;
+
+            const matchId = staffDeptId && String(item.department_id) === String(staffDeptId);
+            const matchName = staffDeptName && String(item.department_name || '').trim().toLowerCase() === String(staffDeptName).trim().toLowerCase();
+            return matchId || matchName;
+        }
+
+        async function fetchRepairHistory() {
+            try {
+                const res = await fetch(`/api/repair-history?_t=${Date.now()}`);
+                
+                const contentType = res.headers.get("content-type");
+                if (!contentType || !contentType.includes("application/json")) {
+                    const textError = await res.text();
+                    throw new Error(textError.slice(0, 100) || `Server returned non-JSON response (${res.status})`);
+                }
+
+                const data = await res.json();
+                
+                if (!res.ok) {
+                    throw new Error(data.details || data.error || 'ไม่สามารถดึงข้อมูลได้');
+                }
+                
+                historyLogs = Array.isArray(data) ? data : [];
+                renderTable();
+            } catch (err) {
+                console.error('Fetch Repair History Error:', err);
+                document.getElementById('history-tbody').innerHTML = `
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-danger">
+                            <i class="fa-solid fa-triangle-exclamation me-1"></i> เกิดข้อผิดพลาดในการดึงข้อมูลประวัติการซ่อม (${escapeHtml(err.message)})
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        function onSearchChange() {
+            currentPage = 1;
+            renderTable();
+        }
+
+        function changeItemsPerPage() {
+            const val = document.getElementById('items-per-page').value;
+            itemsPerPage = val === 'all' ? historyLogs.length : parseInt(val);
+            currentPage = 1;
+            renderTable();
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('history-tbody');
+            const search = document.getElementById('search-table').value.toLowerCase().trim();
+            const selectedDept = document.getElementById('filter-department')?.value || 'all';
+            const selectedOrg = document.getElementById('filter-organization')?.value || 'all';
+
+            const filtered = historyLogs.filter(item => {
+                // 1. สิทธิ์ Staff: ต้องเป็นของสังกัดตนเองเท่านั้น
+                if (!isAdmin) {
+                    if (!canViewHistoryItem(item)) return false;
+                }
+
+                // 2. ตัวกรองสังกัด (Admin)
+                if (isAdmin && selectedDept !== 'all') {
+                    const matchDeptId = String(item.department_id) === String(selectedDept);
+                    const matchDeptName = String(item.department_name || '').trim() === String(selectedDept).trim();
+                    if (!matchDeptId && !matchDeptName) return false;
+                }
+
+                // 3. ตัวกรองหน่วยงาน
+                if (selectedOrg !== 'all') {
+                    const itemOrg = String(item.organization_name || '').trim();
+                    const itemOrgId = String(item.organization_id || '').trim();
+                    if (itemOrg !== selectedOrg && itemOrgId !== selectedOrg) return false;
+                }
+
+                // 4. การค้นหาคำค้น
+                return !search || 
+                    (item.computer_name && item.computer_name.toLowerCase().includes(search)) || 
+                    (item.user_name && item.user_name.toLowerCase().includes(search)) ||
+                    (item.repair_note && item.repair_note.toLowerCase().includes(search)) ||
+                    (item.repaired_by && item.repaired_by.toLowerCase().includes(search)) ||
+                    (item.department_name && item.department_name.toLowerCase().includes(search)) ||
+                    (item.organization_name && item.organization_name.toLowerCase().includes(search));
+            });
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">ไม่พบข้อมูลประวัติการซ่อมแซมตามเงื่อนไขที่กำหนด</td></tr>`;
+                renderPagination(0, 0, 0, 0);
+                return;
+            }
+
+            const limit = itemsPerPage === 'all' ? filtered.length : itemsPerPage;
+            const totalPages = Math.ceil(filtered.length / limit) || 1;
+            if (currentPage > totalPages) currentPage = totalPages;
+
+            const startIndex = (currentPage - 1) * limit;
+            const endIndex = Math.min(startIndex + limit, filtered.length);
+            const paginatedItems = filtered.slice(startIndex, endIndex);
+
+            tbody.innerHTML = '';
+            paginatedItems.forEach((item, index) => {
+                const globalIndex = startIndex + index + 1;
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="text-center fw-medium text-muted">${globalIndex}</td>
+                        <td>
+                            <span class="fw-bold text-primary d-block">${escapeHtml(item.computer_name || '-')}</span>
+                            <small class="text-muted">${escapeHtml(item.category_name || '-')}</small>
+                        </td>
+                        <td>
+                            <span class="fw-medium text-dark d-block">${escapeHtml(item.user_name || '-')}</span>
+                            <small class="text-muted">${escapeHtml(item.department_name || '-')} ${item.organization_name && item.organization_name !== '-' ? `(${escapeHtml(item.organization_name)})` : ''}</small>
+                        </td>
+                        <td>${renderRepairStatusBadge(item.repair_status)}</td>
+                        <td>
+                            <span class="text-dark">${escapeHtml(item.repair_note || '-')}</span>
+                        </td>
+                        <td>
+                            <div class="fw-medium text-dark" style="font-size: 0.88rem;">
+                                <i class="fa-solid fa-user-gear text-primary me-1.5"></i>${escapeHtml(item.repaired_by || 'ช่างเทคนิค')}
+                            </div>
+                        </td>
+                        <td><small class="text-muted">${formatDateTime(item.action_date)}</small></td>
+                    </tr>
+                `;
+            });
+
+            renderPagination(filtered.length, startIndex + 1, endIndex, totalPages);
+        }
+
+        function renderRepairStatusBadge(status) {
+            const statusUpper = String(status || '').toUpperCase();
+            if (statusUpper.includes('ACTIVE') || statusUpper.includes('ใช้งานปกติ')) {
+                return `<span class="badge bg-success-subtle text-success border border-success status-badge"><i class="fa-solid fa-circle-check me-1"></i>ใช้งานปกติ</span>`;
+            } else if (statusUpper.includes('IN_PROGRESS') || statusUpper.includes('กำลังซ่อม') || statusUpper.includes('ส่งซ่อม')) {
+                return `<span class="badge bg-primary-subtle text-primary border border-primary status-badge"><i class="fa-solid fa-screwdriver-wrench me-1"></i>กำลังซ่อม</span>`;
+            } else if (statusUpper.includes('จำหน่าย') || statusUpper.includes('RETIRED') || statusUpper.includes('DISPOSED')) {
+                return `<span class="badge bg-danger-subtle text-danger border border-danger status-badge"><i class="fa-solid fa-box-archive me-1"></i>จำหน่าย</span>`;
+            }
+            return `<span class="badge bg-warning-subtle text-dark border border-warning status-badge"><i class="fa-solid fa-clock-rotate-left me-1"></i>${escapeHtml(status || 'แจ้งซ่อม')}</span>`;
+        }
+
+        function renderPagination(totalItems, start, end, totalPages) {
+            const paginationControls = document.getElementById('pagination-controls');
+            const paginationInfo = document.getElementById('pagination-info');
+
+            if (totalItems === 0) {
+                paginationInfo.textContent = 'แสดง 0 ถึง 0 จากทั้งหมด 0 รายการ';
+                paginationControls.innerHTML = '';
+                return;
+            }
+
+            paginationInfo.textContent = `แสดง ${start} ถึง ${end} จากทั้งหมด ${totalItems} รายการ`;
+
+            let html = `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}"><a class="page-link" href="#" onclick="goToPage(${currentPage - 1}); return false;"><i class="fa-solid fa-chevron-left"></i></a></li>`;
+
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1)) {
+                    html += `<li class="page-item ${i === currentPage ? 'active' : ''}"><a class="page-link" href="#" onclick="goToPage(${i}); return false;">${i}</a></li>`;
+                } else if (i === currentPage - 2 || i === currentPage + 2) {
+                    html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+                }
+            }
+
+            html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}"><a class="page-link" href="#" onclick="goToPage(${currentPage + 1}); return false;"><i class="fa-solid fa-chevron-right"></i></a></li>`;
+            paginationControls.innerHTML = html;
+        }
+
+        function goToPage(page) { currentPage = page; renderTable(); }
+
+        function formatDateTime(dateStr) {
+            if (!dateStr) return '-';
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return '-';
+            return d.toLocaleString('th-TH', { 
+                year: '2-digit', 
+                month: '2-digit', 
+                day: '2-digit', 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+    </script>
+</body>
+</html>
