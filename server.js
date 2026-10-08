@@ -315,6 +315,56 @@ app.put('/api/system/settings', async (req, res) => {
     }
 });
 
+app.delete('/api/system/clear-equipments', async (req, res) => {
+    try {
+        await db.query('SET FOREIGN_KEY_CHECKS = 0');
+        await db.query('TRUNCATE TABLE equipments');
+        await db.query('TRUNCATE TABLE repairs');
+        await db.query('TRUNCATE TABLE repair_history');
+        await db.query('TRUNCATE TABLE equipment_audits');
+        await db.query('SET FOREIGN_KEY_CHECKS = 1');
+
+        const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+        await logActivity({
+            username: req.headers['x-username'] || 'Admin',
+            action: 'WIPE_ALL_EQUIPMENTS',
+            description: `ผู้ดูแลระบบสั่งล้างข้อมูลครุภัณฑ์ทั้งหมด (Wipe Data)`,
+            target_type: 'SYSTEM',
+            target_id: 'WIPE',
+            ip_address: ip
+        });
+
+        res.json({ success: true, message: 'ล้างข้อมูลครุภัณฑ์เรียบร้อยแล้ว' });
+    } catch (err) {
+        console.error('Error clearing equipments:', err);
+        res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดในการล้างข้อมูลครุภัณฑ์: ' + err.message });
+    }
+});
+
+app.delete('/api/system/clear-repairs', async (req, res) => {
+    try {
+        await db.query('SET FOREIGN_KEY_CHECKS = 0');
+        await db.query('TRUNCATE TABLE repairs');
+        await db.query('TRUNCATE TABLE repair_history');
+        await db.query('SET FOREIGN_KEY_CHECKS = 1');
+
+        const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+        await logActivity({
+            username: req.headers['x-username'] || 'Admin',
+            action: 'WIPE_ALL_REPAIRS',
+            description: `ผู้ดูแลระบบสั่งล้างประวัติการซ่อมทั้งหมด (Wipe Data)`,
+            target_type: 'SYSTEM',
+            target_id: 'WIPE',
+            ip_address: ip
+        });
+
+        res.json({ success: true, message: 'ล้างประวัติการซ่อมเรียบร้อยแล้ว' });
+    } catch (err) {
+        console.error('Error clearing repairs:', err);
+        res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดในการล้างประวัติการซ่อม: ' + err.message });
+    }
+});
+
 // 🔑 API สำหรับ Login
 app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body;

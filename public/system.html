@@ -141,6 +141,43 @@
                         </div>
                     </div>
                 </div>
+                </div>
+
+                <!-- 3. การจัดการข้อมูลระบบ (Wipe Data) -->
+                <div class="col-lg-12">
+                    <div class="settings-card p-4 h-100" style="border: 1px solid rgba(220, 53, 69, 0.3);">
+                        <div class="d-flex align-items-center gap-3 mb-3 pb-3 border-bottom">
+                            <div class="settings-header-icon bg-danger text-white">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold m-0 text-danger">การจัดการและล้างข้อมูลระบบ (Data Wipe)</h6>
+                                <small class="text-muted">สำหรับเคลียร์ข้อมูลทดสอบทิ้งทั้งหมดก่อนเริ่มเปิดใช้งานจริง (ระวัง: ไม่สามารถกู้คืนได้)</small>
+                            </div>
+                        </div>
+                        
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="border border-danger-subtle rounded p-3 bg-danger-subtle bg-opacity-10 text-center h-100 d-flex flex-column justify-content-center">
+                                    <h6 class="fw-bold text-dark"><i class="fa-solid fa-boxes-packing text-danger me-2"></i>ล้างข้อมูลครุภัณฑ์ทั้งหมด</h6>
+                                    <p class="small text-muted mb-3">ลบรายชื่อครุภัณฑ์ทั้งหมดออกจากระบบ (รวมถึงประวัติการซ่อมที่ผูกติดอยู่ด้วย)</p>
+                                    <button class="btn btn-danger mt-auto mx-auto w-75 fw-bold shadow-sm" onclick="clearEquipments()">
+                                        <i class="fa-solid fa-trash-can me-1"></i> ล้างข้อมูลครุภัณฑ์
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="border border-warning-subtle rounded p-3 bg-warning-subtle bg-opacity-10 text-center h-100 d-flex flex-column justify-content-center">
+                                    <h6 class="fw-bold text-dark"><i class="fa-solid fa-screwdriver-wrench text-warning-emphasis me-2"></i>ล้างประวัติการซ่อมทั้งหมด</h6>
+                                    <p class="small text-muted mb-3">ลบเฉพาะข้อมูลการแจ้งซ่อมและประวัติการอัปเดตงานซ่อมทั้งหมด (ข้อมูลตัวเครื่องยังคงอยู่)</p>
+                                    <button class="btn btn-warning mt-auto mx-auto w-75 fw-bold shadow-sm text-dark" onclick="clearRepairs()">
+                                        <i class="fa-solid fa-eraser me-1"></i> ล้างประวัติการซ่อม
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
             </div>
         </div>
@@ -290,6 +327,38 @@
             const msgEl = document.getElementById('toast-message');
             if (msgEl) msgEl.innerHTML = `<i class="fa-solid fa-circle-check fs-5"></i> ${msg}`;
             if (toastInstance) toastInstance.show();
+        }
+
+        async function clearEquipments() {
+            if (confirm('ยืนยันการลบข้อมูล"ครุภัณฑ์"ทั้งหมด ')) {
+                try {
+                    const res = await fetch('/api/system/clear-equipments', { method: 'DELETE' });
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        alert(data.message || 'ล้างข้อมูลครุภัณฑ์เรียบร้อยแล้ว');
+                    } else {
+                        alert(data.message || 'เกิดข้อผิดพลาดในการล้างข้อมูล');
+                    }
+                } catch (e) {
+                    alert('เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์');
+                }
+            }
+        }
+
+        async function clearRepairs() {
+            if (confirm('ยืนยันการลบข้อมูล"ประวัติการซ่อม"ทั้งหมด ')) {
+                try {
+                    const res = await fetch('/api/system/clear-repairs', { method: 'DELETE' });
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        alert(data.message || 'ล้างประวัติการซ่อมเรียบร้อยแล้ว');
+                    } else {
+                        alert(data.message || 'เกิดข้อผิดพลาดในการล้างข้อมูล');
+                    }
+                } catch (e) {
+                    alert('เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์');
+                }
+            }
         }
     </script>
 </body>
