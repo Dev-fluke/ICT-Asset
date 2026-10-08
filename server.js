@@ -1066,6 +1066,74 @@ app.put('/api/equipments/:id/repair-status', async (req, res) => {
     }
 });
 
+app.get('/api/equipments/:id/repair-history', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const numId = parseInt(id, 10);
+        const isValidNumber = !isNaN(numId);
+
+        // หา equipment_id และ computer_name ที่แท้จริง
+        const [eqRows] = await db.query(
+            `SELECT id, computer_name FROM equipments WHERE ${isValidNumber ? 'id = ? OR computer_name = ?' : 'computer_name = ?'}`,
+            isValidNumber ? [numId, id] : [id]
+        );
+
+        const realId = eqRows.length > 0 ? eqRows[0].id : numId;
+        const compName = eqRows.length > 0 ? eqRows[0].computer_name : id;
+
+        // ดึงจากตาราง repair_history
+        const [historyRows] = await db.query(`
+            SELECT 
+                rh.id AS history_id,
+                rh.equipment_id,
+                rh.repair_status,
+                rh.repair_note,
+                COALESCE(u.fullname, rh.repaired_by, 'ช่างเทคนิค') AS repaired_by,
+                rh.created_at AS action_date,
+                COALESCE(e.computer_name, ?) AS computer_name,
+                e.user_name
+            FROM repair_history rh
+            LEFT JOIN equipments e ON rh.equipment_id = e.id
+            LEFT JOIN users u ON (rh.repaired_by = u.username OR rh.repaired_by = u.fullname)
+            WHERE rh.equipment_id = ? OR e.computer_name = ?
+            ORDER BY rh.created_at DESC
+        `, [compName, realId, compName]);
+
+        // ดึงจากตาราง repairs (การแจ้งซ่อม) ด้วย
+        const [repairsRows] = await db.query(`
+            SELECT 
+                r.id AS history_id,
+                r.equipment_id,
+                r.status AS repair_status,
+                CONCAT('แจ้งซ่อม: ', r.symptom) AS repair_note,
+                COALESCE(r.reporter_name, 'ผู้ใช้งาน') AS repaired_by,
+                r.created_at AS action_date,
+                COALESCE(e.computer_name, ?) AS computer_name,
+                e.user_name
+            FROM repairs r
+            LEFT JOIN equipments e ON r.equipment_id = e.id
+            WHERE r.equipment_id = ? OR e.computer_name = ?
+            ORDER BY r.created_at DESC
+        `, [compName, realId, compName]);
+
+        const combined = [...historyRows];
+        repairsRows.forEach(rep => {
+            const isDuplicate = combined.some(h => 
+                h.repair_note && h.repair_note.includes(rep.repair_note)
+            );
+            if (!isDuplicate) {
+                combined.push(rep);
+            }
+        });
+
+        combined.sort((a, b) => new Date(b.action_date) - new Date(a.action_date));
+        res.json(combined);
+    } catch (err) {
+        console.error('Error fetching equipment repair history:', err);
+        res.status(500).json({ error: 'เกิดข้อผิดพลาดในการดึงข้อมูลประวัติการซ่อม' });
+    }
+});
+
 app.delete('/api/equipments/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -1407,7 +1475,8 @@ app.post('/api/repairs', async (req, res) => {
 
 app.get('/api/repair-history', async (req, res) => {
     try {
-        const sql = `
+        const { equipment_id } = req.query;
+        let sql = `
             SELECT 
                 rh.id AS history_id,
                 rh.equipment_id,
@@ -1428,9 +1497,14 @@ app.get('/api/repair-history', async (req, res) => {
             LEFT JOIN departments d ON e.department_id = d.id
             LEFT JOIN organizations o ON e.organization_id = o.id
             LEFT JOIN users u ON (rh.repaired_by = u.username OR rh.repaired_by = u.fullname)
-            ORDER BY rh.created_at DESC
         `;
-        const [rows] = await db.query(sql);
+        const params = [];
+        if (equipment_id) {
+            sql += ` WHERE rh.equipment_id = ? `;
+            params.push(equipment_id);
+        }
+        sql += ` ORDER BY rh.created_at DESC `;
+        const [rows] = await db.query(sql, params);
         res.json(rows);
     } catch (err) {
         console.error('Error fetching repair history:', err);

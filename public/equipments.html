@@ -287,87 +287,138 @@
         </div>
     </div>
 
-    <!-- Modal แสดงรายละเอียดครุภัณฑ์ -->
+    <!-- Modal แสดงรายละเอียดครุภัณฑ์ & ประวัติการซ่อม -->
     <div class="modal fade" id="viewEquipmentModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content shadow">
-                <div class="modal-header bg-info text-white">
+            <div class="modal-content shadow border-0">
+                <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title fw-bold">
-                        <i class="fa-solid fa-boxes-packing me-2"></i>รายละเอียดครุภัณฑ์
+                        <i class="fa-solid fa-boxes-packing me-2"></i>รายละเอียดครุภัณฑ์ & ประวัติการซ่อม
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body p-4">
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-8">
-                            <table class="table table-borderless table-sm mb-0">
-                                <tbody>
-                                    <tr>
-                                        <th style="width: 35%;" class="text-secondary">ชื่อเครื่อง:</th>
-                                        <td id="view-eq-computer-name" class="fw-bold text-primary"></td>
-                                    </tr>
-                                    <tr>
-                                        <th class="text-secondary">ชื่อผู้ใช้งาน:</th>
-                                        <td id="view-eq-user-name" class="fw-bold"></td>
-                                    </tr>
-                                    <tr>
-                                        <th class="text-secondary">ตำแหน่ง:</th>
-                                        <td id="view-eq-position"></td>
-                                    </tr>
-                                    <tr>
-                                        <th class="text-secondary">อีเมล ทอ.:</th>
-                                        <td id="view-eq-email"></td>
-                                    </tr>
-                                    <tr>
-                                        <th class="text-secondary">เบอร์โทรศัพท์สำนักงาน:</th>
-                                        <td id="view-eq-phone"></td>
-                                    </tr>
-                                    <tr>
-                                        <th class="text-secondary">หมวดหมู่:</th>
-                                        <td id="view-eq-category"></td>
-                                    </tr>
-                                    <tr>
-                                        <th class="text-secondary">สังกัด:</th>
-                                        <td id="view-eq-department"></td>
-                                    </tr>
-                                    <tr>
-                                        <th class="text-secondary">หน่วยงาน:</th>
-                                        <td id="view-eq-organization"></td>
-                                    </tr>
-                                    <tr>
-                                        <th class="text-secondary">สถานะ:</th>
-                                        <td id="view-eq-status"></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="col-md-4 text-center border-start d-flex flex-column align-items-center justify-content-center">
-                            <a id="view-eq-repair-link" href="#" target="_blank" rel="noopener noreferrer" title="คลิกเพื่อไปหน้าแจ้งซ่อม (เปิดแท็บใหม่)" class="text-decoration-none">
-                                <img id="view-eq-qrcode" src="" alt="QR Code" class="img-fluid mb-2 border p-1 rounded hover-shadow" style="max-height: 120px; cursor: pointer;">
-                            </a>
-                            <small class="text-muted">คลิกรูป QR Code เพื่อแจ้งซ่อม</small>
-                        </div>
-                    </div>
+                <div class="modal-body p-0">
+                    <!-- Nav Tabs -->
+                    <ul class="nav nav-tabs nav-fill bg-light px-3 pt-2 border-bottom" id="equipmentDetailTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active fw-bold text-dark" id="tab-eq-info-btn" data-bs-toggle="tab" data-bs-target="#tab-eq-info-pane" type="button" role="tab" onclick="switchEquipmentModalTab('info')">
+                                <i class="fa-solid fa-circle-info text-primary me-1"></i> ข้อมูลและสเปก
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link fw-bold text-dark" id="tab-eq-repair-btn" data-bs-toggle="tab" data-bs-target="#tab-eq-repair-pane" type="button" role="tab" onclick="switchEquipmentModalTab('repair')">
+                                <i class="fa-solid fa-wrench text-warning me-1"></i> ประวัติการซ่อมแซม <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill ms-1" id="view-eq-repair-count-badge">0</span>
+                            </button>
+                        </li>
+                    </ul>
 
-                    <div class="border-top pt-3">
-                        <h6 class="fw-bold mb-3 text-secondary">
-                            <i class="fa-solid fa-circle-info me-1"></i>คุณลักษณะเฉพาะ / สเปกเพิ่มเติม
-                        </h6>
-                        <div class="table-responsive">
-                            <table class="table table-bordered table-hover align-middle">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th style="width: 35%;">หัวข้อ</th>
-                                        <th>รายละเอียด</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="view-details-tbody"></tbody>
-                            </table>
+                    <div class="tab-content p-4" id="equipmentDetailTabsContent">
+                        <!-- Tab 1: ข้อมูลและสเปก -->
+                        <div class="tab-pane fade show active" id="tab-eq-info-pane" role="tabpanel">
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-8">
+                                    <table class="table table-borderless table-sm mb-0">
+                                        <tbody>
+                                            <tr>
+                                                <th style="width: 35%;" class="text-secondary">ชื่อเครื่อง:</th>
+                                                <td id="view-eq-computer-name" class="fw-bold text-primary"></td>
+                                            </tr>
+                                            <tr>
+                                                <th class="text-secondary">ชื่อผู้ใช้งาน:</th>
+                                                <td id="view-eq-user-name" class="fw-bold"></td>
+                                            </tr>
+                                            <tr>
+                                                <th class="text-secondary">ตำแหน่ง:</th>
+                                                <td id="view-eq-position"></td>
+                                            </tr>
+                                            <tr>
+                                                <th class="text-secondary">อีเมล ทอ.:</th>
+                                                <td id="view-eq-email"></td>
+                                            </tr>
+                                            <tr>
+                                                <th class="text-secondary">เบอร์โทรศัพท์สำนักงาน:</th>
+                                                <td id="view-eq-phone"></td>
+                                            </tr>
+                                            <tr>
+                                                <th class="text-secondary">หมวดหมู่:</th>
+                                                <td id="view-eq-category"></td>
+                                            </tr>
+                                            <tr>
+                                                <th class="text-secondary">สังกัด:</th>
+                                                <td id="view-eq-department"></td>
+                                            </tr>
+                                            <tr>
+                                                <th class="text-secondary">หน่วยงาน:</th>
+                                                <td id="view-eq-organization"></td>
+                                            </tr>
+                                            <tr>
+                                                <th class="text-secondary">สถานะปัจจุบัน:</th>
+                                                <td id="view-eq-status"></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="col-md-4 text-center border-start d-flex flex-column align-items-center justify-content-center">
+                                    <a id="view-eq-repair-link" href="#" target="_blank" rel="noopener noreferrer" title="คลิกเพื่อไปหน้าแจ้งซ่อม (เปิดแท็บใหม่)" class="text-decoration-none">
+                                        <img id="view-eq-qrcode" src="" alt="QR Code" class="img-fluid mb-2 border p-1 rounded hover-shadow" style="max-height: 120px; cursor: pointer;">
+                                    </a>
+                                    <small class="text-muted">คลิกรูป QR Code เพื่อแจ้งซ่อม</small>
+                                </div>
+                            </div>
+
+                            <div class="border-top pt-3">
+                                <h6 class="fw-bold mb-3 text-secondary">
+                                    <i class="fa-solid fa-circle-info me-1"></i>คุณลักษณะเฉพาะ / สเปกเพิ่มเติม
+                                </h6>
+                                <div class="table-responsive">
+                                    <table class="table table-bordered table-hover align-middle">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th style="width: 35%;">หัวข้อ</th>
+                                                <th>รายละเอียด</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="view-details-tbody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tab 2: ประวัติการซ่อม -->
+                        <div class="tab-pane fade" id="tab-eq-repair-pane" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <h6 class="fw-bold m-0 text-dark"><i class="fa-solid fa-clock-rotate-left text-primary me-2"></i>ประวัติและสถานะการซ่อมแซม</h6>
+                                    <small class="text-muted">บันทึกการส่งซ่อมและความคืบหน้าของเครื่องนี้</small>
+                                </div>
+                                <a id="view-eq-repair-btn-direct" href="#" target="_blank" class="btn btn-sm btn-outline-primary">
+                                    <i class="fa-solid fa-screwdriver-wrench me-1"></i> ไปหน้าแจ้งซ่อมเครื่องนี้
+                                </a>
+                            </div>
+
+                            <div class="table-responsive">
+                                <table class="table table-hover table-bordered align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th class="text-center" style="width: 50px;">No.</th>
+                                            <th style="width: 140px;">วันที่ดำเนินการ</th>
+                                            <th style="width: 120px;">สถานะ</th>
+                                            <th>รายละเอียด / หมายเหตุ</th>
+                                            <th style="width: 140px;">ผู้ดำเนินการ</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="view-repair-history-tbody">
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted py-4">กำลังโหลดประวัติการซ่อม...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ปิดหน้าต่าง</button>
                 </div>
             </div>
         </div>
@@ -1010,6 +1061,7 @@
 
                 let actionBtns = `
                     <button class="btn btn-sm btn-outline-info me-1" onclick="viewEquipmentDetails(${eq.id})" title="ดูรายละเอียด"><i class="fa-solid fa-eye"></i></button>
+                    <button class="btn btn-sm btn-outline-primary me-1" onclick="viewEquipmentRepairHistory(${eq.id})" title="สถานะและประวัติการซ่อม"><i class="fa-solid fa-clock-rotate-left"></i></button>
                 `;
 
                 if (isPermitted) {
@@ -1312,12 +1364,61 @@
             }
         }
 
-        async function viewEquipmentDetails(equipmentId) {
+        function switchEquipmentModalTab(tabName) {
+            const infoTabBtn = document.getElementById('tab-eq-info-btn');
+            const repairTabBtn = document.getElementById('tab-eq-repair-btn');
+            const infoPane = document.getElementById('tab-eq-info-pane');
+            const repairPane = document.getElementById('tab-eq-repair-pane');
+
+            if (!infoTabBtn || !repairTabBtn || !infoPane || !repairPane) return;
+
+            if (tabName === 'repair') {
+                infoTabBtn.classList.remove('active');
+                infoTabBtn.setAttribute('aria-selected', 'false');
+                infoPane.classList.remove('show', 'active');
+
+                repairTabBtn.classList.add('active');
+                repairTabBtn.setAttribute('aria-selected', 'true');
+                repairPane.classList.add('show', 'active');
+            } else {
+                repairTabBtn.classList.remove('active');
+                repairTabBtn.setAttribute('aria-selected', 'false');
+                repairPane.classList.remove('show', 'active');
+
+                infoTabBtn.classList.add('active');
+                infoTabBtn.setAttribute('aria-selected', 'true');
+                infoPane.classList.add('show', 'active');
+            }
+        }
+
+        async function viewEquipmentRepairHistory(equipmentId) {
+            await viewEquipmentDetails(equipmentId, 'repair');
+        }
+
+        async function viewEquipmentDetails(equipmentId, targetTab = 'info') {
             try {
-                const response = await fetch(`/api/equipments/${equipmentId}`);
-                if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลได้');
-                
-                const data = await response.json();
+                // สลับแท็บที่ต้องการแสดงทันที
+                switchEquipmentModalTab(targetTab);
+
+                const repairTbody = document.getElementById('view-repair-history-tbody');
+                const countBadge = document.getElementById('view-eq-repair-count-badge');
+
+                repairTbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4"><i class="fa-solid fa-spinner fa-spin me-2"></i>กำลังโหลดประวัติการซ่อม...</td></tr>';
+                countBadge.textContent = '...';
+
+                // เปิด Modal ทันทีเพื่อให้ผู้ใช้เห็นหน้าต่างและสถานะกำลังโหลด
+                const modalEl = document.getElementById('viewEquipmentModal');
+                const modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+                modalInstance.show();
+
+                // ดึงข้อมูลครุภัณฑ์และประวัติการซ่อมเฉพาะเครื่องนี้
+                const [responseEq, responseRepairs] = await Promise.all([
+                    fetch(`/api/equipments/${equipmentId}`),
+                    fetch(`/api/equipments/${equipmentId}/repair-history`).catch(() => fetch(`/api/repair-history?equipment_id=${equipmentId}`))
+                ]);
+
+                if (!responseEq.ok) throw new Error('ไม่สามารถดึงข้อมูลครุภัณฑ์ได้');
+                const data = await responseEq.json();
 
                 document.getElementById('view-eq-computer-name').textContent = data.computer_name || '-';
                 document.getElementById('view-eq-user-name').textContent = data.user_name || '-';
@@ -1330,9 +1431,12 @@
                 
                 document.getElementById('view-eq-status').innerHTML = getStatusBadge(data.status);
 
-                const repairLink = document.getElementById('view-eq-repair-link');
                 const computerName = data.computer_name || '';
-                repairLink.href = `repair.html?code=${encodeURIComponent(computerName)}`;
+                const repairLink = document.getElementById('view-eq-repair-link');
+                if (repairLink) repairLink.href = `repair.html?code=${encodeURIComponent(computerName)}`;
+
+                const repairBtnDirect = document.getElementById('view-eq-repair-btn-direct');
+                if (repairBtnDirect) repairBtnDirect.href = `repair.html?code=${encodeURIComponent(computerName)}`;
 
                 const qrEl = document.getElementById('view-eq-qrcode');
                 if (data.qr_code) {
@@ -1374,11 +1478,67 @@
                     tbody.innerHTML = '<tr><td colspan="2" class="text-center text-muted py-3">ไม่มีข้อมูลคุณลักษณะเพิ่มเติม</td></tr>';
                 }
 
-                new bootstrap.Modal(document.getElementById('viewEquipmentModal')).show();
+                // โหลดและแสดงประวัติการซ่อม (กรองอย่างเข้มงวดให้แสดงเฉพาะอุปกรณ์เครื่องนี้เท่านั้น)
+                let repairList = [];
+                if (responseRepairs && responseRepairs.ok) {
+                    try {
+                        const rawRepairs = await responseRepairs.json();
+                        if (Array.isArray(rawRepairs)) {
+                            repairList = rawRepairs.filter(rep => {
+                                const matchEqId = rep.equipment_id !== undefined && rep.equipment_id !== null && String(rep.equipment_id) === String(equipmentId);
+                                const matchCompName = rep.computer_name && computerName && String(rep.computer_name).trim().toLowerCase() === String(computerName).trim().toLowerCase();
+                                return matchEqId || matchCompName;
+                            });
+                        }
+                    } catch (e) { repairList = []; }
+                }
+
+                countBadge.textContent = repairList.length;
+                if (repairList.length === 0) {
+                    repairTbody.innerHTML = `
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-4">
+                                <i class="fa-solid fa-circle-check text-success fs-4 d-block mb-2"></i>
+                                ยังไม่พบประวัติการแจ้งซ่อมหรือบันทึกงานซ่อมสำหรับครุภัณฑ์นี้ (${escapeHtml(computerName || 'ID: ' + equipmentId)})
+                            </td>
+                        </tr>
+                    `;
+                } else {
+                    let repairRowsHtml = '';
+                    repairList.forEach((rep, idx) => {
+                        const dateStr = rep.action_date ? new Date(rep.action_date).toLocaleString('th-TH', {
+                            year: '2-digit', month: '2-digit', day: '2-digit',
+                            hour: '2-digit', minute: '2-digit'
+                        }) : '-';
+
+                        repairRowsHtml += `
+                            <tr>
+                                <td class="text-center fw-medium text-muted">${idx + 1}</td>
+                                <td><small class="text-muted"><i class="fa-regular fa-clock me-1"></i>${dateStr}</small></td>
+                                <td>${renderRepairStatusBadge(rep.repair_status)}</td>
+                                <td><span class="text-dark">${escapeHtml(rep.repair_note || '-')}</span></td>
+                                <td><small class="text-dark"><i class="fa-solid fa-user-gear text-primary me-1"></i>${escapeHtml(rep.repaired_by || 'ช่างเทคนิค')}</small></td>
+                            </tr>
+                        `;
+                    });
+                    repairTbody.innerHTML = repairRowsHtml;
+                }
             } catch (error) { 
                 console.error('View Details Error:', error);
                 alert('เกิดข้อผิดพลาดในการโหลดข้อมูลรายละเอียด'); 
             }
+        }
+
+        function renderRepairStatusBadge(status) {
+            const statusUpper = String(status || '').toUpperCase();
+            if (statusUpper.includes('ACTIVE') || statusUpper.includes('ใช้งานปกติ') || statusUpper.includes('ซ่อมเสร็จสิ้น')) {
+                return `<span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2.5 py-1"><i class="fa-solid fa-circle-check me-1"></i>${escapeHtml(status || 'ใช้งานปกติ')}</span>`;
+            } else if (statusUpper.includes('IN_PROGRESS') || statusUpper.includes('กำลังซ่อม') || statusUpper.includes('ส่งซ่อม') || statusUpper.includes('รอดำเนินการ')) {
+                return `<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2.5 py-1"><i class="fa-solid fa-screwdriver-wrench me-1"></i>${escapeHtml(status || 'กำลังซ่อม')}</span>`;
+            } else if (statusUpper.includes('จำหน่าย') || statusUpper.includes('RETIRED') || statusUpper.includes('DISPOSED')) {
+                return `<span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2.5 py-1"><i class="fa-solid fa-box-archive me-1"></i>${escapeHtml(status || 'จำหน่าย')}</span>`;
+            }
+            return `<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill px-2.5 py-1"><i class="fa-solid fa-clock-rotate-left me-1"></i>${escapeHtml(status || 'ไม่ระบุ')}</span>`;
         }
 
         async function submitCategory(e) {
