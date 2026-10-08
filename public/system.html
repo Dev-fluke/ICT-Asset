@@ -189,25 +189,31 @@
             <div class="modal-content border-0 shadow-lg">
                 <div class="modal-header bg-danger text-white">
                     <h5 class="modal-title fw-bold">
-                        <i class="fa-solid fa-triangle-exclamation me-2"></i>ตรวจสอบความปลอดภัย
+                        <i class="fa-solid fa-triangle-exclamation me-2"></i>ตรวจสอบความปลอดภัยระดับสูง
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body text-center py-4 px-4">
-                    <i class="fa-solid fa-trash-can text-danger mb-3" style="font-size: 3.5rem;"></i>
+                    <i class="fa-solid fa-shield-halved text-danger mb-3" style="font-size: 3.5rem;"></i>
                     <h5 class="fw-bold mb-2 text-dark" id="wipeModalMessage">ยืนยันการลบข้อมูลทั้งหมด?</h5>
-                    <p class="text-danger small fw-semibold mb-4 bg-danger-subtle p-2 rounded">
-                        คำเตือน: การดำเนินการนี้ไม่สามารถเรียกคืนข้อมูลกลับมาได้!
+                    <p class="text-danger small fw-semibold mb-3 bg-danger-subtle p-2 rounded">
+                        คำเตือน: การดำเนินการนี้จะลบข้อมูลออกจากระบบอย่างถาวรและไม่สามารถเรียกคืนได้!
                     </p>
                     <p class="text-muted small mb-2">
-                        เพื่อป้องกันความผิดพลาด โปรดพิมพ์คำว่า <strong class="text-dark fs-6">"ยืนยัน"</strong> ลงในช่องด้านล่างเพื่อดำเนินการต่อ
+                        กรุณากรอกรหัสผ่านความปลอดภัย (Security Passkey) เพื่อยืนยันการดำเนินการ
                     </p>
-                    <input type="text" id="wipeConfirmInput" class="form-control text-center fw-bold fs-5 mb-2 shadow-sm" placeholder="พิมพ์คำว่า ยืนยัน" oninput="checkWipeConfirmInput()" autocomplete="off">
+                    <div class="input-group mb-2 shadow-sm">
+                        <input type="password" id="wipeConfirmInput" class="form-control text-center fw-bold fs-5" placeholder="กรอกรหัสผ่านยืนยัน" oninput="checkWipeConfirmInput()" onkeydown="handleWipeKeydown(event)" autocomplete="off">
+                        <button class="btn btn-outline-secondary" type="button" onclick="toggleWipePassVisibility()" title="แสดง/ซ่อนรหัสผ่าน">
+                            <i class="fa-solid fa-eye" id="wipeEyeIcon"></i>
+                        </button>
+                    </div>
+                    <div id="wipeErrorText" class="text-danger small mt-1" style="display: none;"></div>
                 </div>
                 <div class="modal-footer bg-light justify-content-center border-top-0 pt-0 pb-4">
                     <button type="button" class="btn btn-secondary px-4 fw-semibold" data-bs-dismiss="modal">ยกเลิก</button>
                     <button type="button" class="btn btn-danger px-4 fw-bold shadow-sm" id="wipeConfirmBtn" disabled onclick="executeWipe()">
-                        <i class="fa-solid fa-check me-1"></i> ดำเนินการลบข้อมูล
+                        <i class="fa-solid fa-triangle-exclamation me-1"></i> ดำเนินการลบข้อมูล
                     </button>
                 </div>
             </div>
@@ -368,6 +374,7 @@
             const msgEl = document.getElementById('wipeModalMessage');
             const inputEl = document.getElementById('wipeConfirmInput');
             const btnEl = document.getElementById('wipeConfirmBtn');
+            const errEl = document.getElementById('wipeErrorText');
 
             if (action === 'equipments') {
                 msgEl.innerText = 'ยืนยันการลบข้อมูล "ครุภัณฑ์" ทั้งหมด';
@@ -376,26 +383,65 @@
             }
 
             inputEl.value = '';
+            inputEl.type = 'password';
+            const eyeIcon = document.getElementById('wipeEyeIcon');
+            if (eyeIcon) eyeIcon.className = 'fa-solid fa-eye';
+            if (errEl) {
+                errEl.innerText = '';
+                errEl.style.display = 'none';
+            }
             btnEl.disabled = true;
 
             if (!wipeModalInstance) {
                 wipeModalInstance = new bootstrap.Modal(document.getElementById('wipeConfirmModal'));
             }
             wipeModalInstance.show();
+            setTimeout(() => inputEl.focus(), 300);
         }
 
         function checkWipeConfirmInput() {
             const inputEl = document.getElementById('wipeConfirmInput');
             const btnEl = document.getElementById('wipeConfirmBtn');
-            if (inputEl.value.trim() === 'ยืนยัน') {
-                btnEl.disabled = false;
+            const errEl = document.getElementById('wipeErrorText');
+            if (errEl) errEl.style.display = 'none';
+            btnEl.disabled = !inputEl.value.trim();
+        }
+
+        function toggleWipePassVisibility() {
+            const inputEl = document.getElementById('wipeConfirmInput');
+            const eyeIcon = document.getElementById('wipeEyeIcon');
+            if (inputEl.type === 'password') {
+                inputEl.type = 'text';
+                eyeIcon.className = 'fa-solid fa-eye-slash';
             } else {
-                btnEl.disabled = true;
+                inputEl.type = 'password';
+                eyeIcon.className = 'fa-solid fa-eye';
+            }
+        }
+
+        function handleWipeKeydown(event) {
+            if (event.key === 'Enter') {
+                const btnEl = document.getElementById('wipeConfirmBtn');
+                if (!btnEl.disabled) {
+                    executeWipe();
+                }
             }
         }
 
         async function executeWipe() {
+            const inputEl = document.getElementById('wipeConfirmInput');
             const btnEl = document.getElementById('wipeConfirmBtn');
+            const errEl = document.getElementById('wipeErrorText');
+            const passkey = inputEl.value.trim();
+
+            if (!passkey) {
+                if (errEl) {
+                    errEl.innerText = 'กรุณากรอกรหัสผ่านยืนยันความปลอดภัย';
+                    errEl.style.display = 'block';
+                }
+                return;
+            }
+
             const originalBtnHtml = btnEl.innerHTML;
             btnEl.disabled = true;
             btnEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> กำลังลบข้อมูล...';
@@ -408,21 +454,30 @@
             }
 
             try {
-                const res = await fetch(apiUrl, { method: 'DELETE' });
+                const res = await fetch(apiUrl, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ passkey })
+                });
                 const data = await res.json();
-                wipeModalInstance.hide();
+                
                 if (res.ok && data.success) {
+                    wipeModalInstance.hide();
                     showToast(data.message || 'ล้างข้อมูลเรียบร้อยแล้ว');
                 } else {
-                    alert(data.message || 'เกิดข้อผิดพลาดในการล้างข้อมูล');
+                    if (errEl) {
+                        errEl.innerText = data.message || 'รหัสผ่านยืนยันไม่ถูกต้อง';
+                        errEl.style.display = 'block';
+                    } else {
+                        alert(data.message || 'รหัสผ่านยืนยันไม่ถูกต้อง');
+                    }
+                    inputEl.select();
                 }
             } catch (e) {
-                wipeModalInstance.hide();
                 alert('เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์');
             } finally {
                 btnEl.innerHTML = originalBtnHtml;
-                // Re-evaluate input so button stays enabled if text is still there, though modal is hidden
-                checkWipeConfirmInput();
+                btnEl.disabled = !inputEl.value.trim();
             }
         }
 

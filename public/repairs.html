@@ -16,6 +16,91 @@
     <script src="../auth-guard.js"></script>
      <!-- ออกจากระบบ -->
     <script src="../global-app.js"></script> 
+    <style>
+        /* Custom Non-blocking Image Lightbox Overlay */
+        .image-lightbox-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(15, 23, 42, 0.88);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            z-index: 99999 !important;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .image-lightbox-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .image-lightbox-card {
+            background: #1e293b;
+            border-radius: 14px;
+            max-width: 90vw;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.1);
+            transform: scale(0.96);
+            transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .image-lightbox-overlay.active .image-lightbox-card {
+            transform: scale(1);
+        }
+        .image-lightbox-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 18px;
+            background: #0f172a;
+            color: #fff;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .image-lightbox-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #f1f5f9;
+        }
+        .image-lightbox-close {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            font-size: 1.35rem;
+            cursor: pointer;
+            line-height: 1;
+            padding: 4px 8px;
+            border-radius: 6px;
+            transition: all 0.15s ease;
+        }
+        .image-lightbox-close:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .image-lightbox-body {
+            padding: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #090d16;
+            overflow: auto;
+        }
+        .image-lightbox-body img {
+            max-width: 100%;
+            max-height: 75vh;
+            object-fit: contain;
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+        }
+    </style>
 </head>
 <body>
 
@@ -215,6 +300,23 @@
                         <i class="fa-solid fa-box-archive me-1"></i>ยืนยันจำหน่ายครุภัณฑ์
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Fullscreen Image Lightbox Overlay (ไม่สร้าง Backdrop ซ้อน ป้องกันจอค้าง 100%) -->
+    <div id="imageLightboxOverlay" class="image-lightbox-overlay" onclick="closeImageLightbox(event)">
+        <div class="image-lightbox-card" onclick="event.stopPropagation()">
+            <div class="image-lightbox-header">
+                <div id="imageLightboxTitle" class="image-lightbox-title">
+                    <i class="fa-solid fa-image me-2 text-info"></i>รูปภาพแจ้งซ่อม
+                </div>
+                <button type="button" class="image-lightbox-close" onclick="closeImageLightbox(event)" title="ปิด (Esc)">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="image-lightbox-body">
+                <img id="imageLightboxImg" src="" alt="รูปภาพขยาย">
             </div>
         </div>
     </div>
@@ -585,9 +687,17 @@
                         </td>
                         <td>
                             ${symptomText !== '-' ? `
-                                <div class="d-inline-flex align-items-start gap-1.5 text-danger fw-semibold px-2.5 py-1 rounded-2 bg-danger-subtle border border-danger-subtle small text-start">
-                                    <i class="fa-solid fa-triangle-exclamation mt-0.5 flex-shrink-0"></i>
-                                    <span class="text-wrap" style="max-width: 240px; line-height: 1.35;">${escapeHtml(symptomText)}</span>
+                                <div class="d-inline-flex flex-column align-items-start gap-1">
+                                    <div class="d-inline-flex align-items-start gap-1.5 text-danger fw-semibold px-2.5 py-1 rounded-2 bg-danger-subtle border border-danger-subtle small text-start">
+                                        <i class="fa-solid fa-triangle-exclamation mt-0.5 flex-shrink-0"></i>
+                                        <span class="text-wrap" style="max-width: 240px; line-height: 1.35;">${escapeHtml(symptomText)}</span>
+                                    </div>
+                                    ${e.repair_image ? `
+                                        <div>
+                                            <a href="javascript:void(0)" onclick="previewRepairImage('/uploads/${escapeHtml(e.repair_image)}', '${escapeHtml(e.computer_name || '')}')" class="badge bg-info-subtle text-info-emphasis border border-info-subtle text-decoration-none py-1 px-2 shadow-sm">
+                                                <i class="fa-solid fa-camera me-1"></i>ดูรูปอาการเสีย
+                                            </a>
+                                        </div>` : ''}
                                 </div>
                             ` : '<span class="text-muted">-</span>'}
                         </td>
@@ -602,6 +712,43 @@
 
             renderPagination(filtered.length, startIndex + 1, endIndex, totalPages);
         }
+
+        function previewRepairImage(src, title = '') {
+            const overlay = document.getElementById('imageLightboxOverlay');
+            const imgEl = document.getElementById('imageLightboxImg');
+            const titleEl = document.getElementById('imageLightboxTitle');
+            if (!overlay || !imgEl) return;
+
+            imgEl.src = src;
+            if (titleEl) {
+                titleEl.innerHTML = `<i class="fa-solid fa-image me-2 text-info"></i>รูปภาพแจ้งซ่อม ${title ? `(${escapeHtml(title)})` : ''}`;
+            }
+            overlay.classList.add('active');
+        }
+
+        function closeImageLightbox(e) {
+            if (e) e.stopPropagation();
+            const overlay = document.getElementById('imageLightboxOverlay');
+            if (!overlay) return;
+            overlay.classList.remove('active');
+            setTimeout(() => {
+                const imgEl = document.getElementById('imageLightboxImg');
+                if (imgEl && !overlay.classList.contains('active')) {
+                    imgEl.src = '';
+                }
+            }, 200);
+        }
+
+        // กดปุ่ม Escape เพื่อปิดหน้าต่างขยายรูปภาพ
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                const overlay = document.getElementById('imageLightboxOverlay');
+                if (overlay && overlay.classList.contains('active')) {
+                    e.stopImmediatePropagation();
+                    closeImageLightbox(e);
+                }
+            }
+        });
 
         function renderRepairStatusBadge(status) {
             const statusUpper = String(status).toUpperCase();

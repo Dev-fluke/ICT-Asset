@@ -58,11 +58,14 @@
             .qr-grid {
                 display: grid !important;
                 grid-template-columns: repeat(4, 1fr) !important;
-                gap: 10px !important;
+                gap: 0 !important;
             }
             .qr-card {
-                border: 1px solid #000 !important;
+                border: 1px dashed #999 !important;
+                border-radius: 0 !important;
                 box-shadow: none !important;
+                margin: 0 !important;
+                padding: 15px 5px !important;
             }
         }
     </style>
@@ -88,9 +91,14 @@
                             </h5>
                             <div id="role-scope-badge" class="mt-1 small"></div>
                         </div>
-                        <button class="btn btn-primary btn-sm px-3 rounded-pill fw-bold shadow-sm" onclick="window.print()">
-                            <i class="fa-solid fa-print me-1"></i> สั่งพิมพ์ / Save PDF
-                        </button>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-success btn-sm px-3 rounded-pill fw-bold shadow-sm admin-only" style="display: none;" id="btn-generate-qr" onclick="openGenerateModal()">
+                                <i class="fa-solid fa-plus me-1"></i> สร้าง QR ล่วงหน้า
+                            </button>
+                            <button class="btn btn-primary btn-sm px-3 rounded-pill fw-bold shadow-sm" onclick="window.print()">
+                                <i class="fa-solid fa-print me-1"></i> สั่งพิมพ์ / Save PDF
+                            </button>
+                        </div>
                     </div>
 
                     <div class="row g-2 align-items-end bg-light p-3 rounded border">
@@ -136,6 +144,49 @@
         </div>
     </div>
 
+    
+    <!-- Modal สร้าง QR ล่วงหน้า -->
+    <div class="modal fade" id="generateQrModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title fw-bold">สร้าง QR Code ล่วงหน้า (รอลงทะเบียน)</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">เลือกหมวดหมู่</label>
+                        <select id="gen-category" class="form-select form-select-sm" onchange="onGenCategoryChange()">
+                            <option value="">-- กรุณาเลือก --</option>
+                        </select>
+                    </div>
+                    
+                    <div id="prefix-setup-box" class="bg-light p-3 rounded border mb-3" style="display: none;">
+                        <p class="small text-danger mb-2 fw-bold"><i class="fa-solid fa-circle-exclamation me-1"></i> หมวดหมู่นี้ยั้งไม่ได้ตั้งตัวย่อ (Prefix)</p>
+                        <label class="form-label small">กำหนดตัวย่อ (เช่น COM)</label>
+                        <div class="input-group input-group-sm">
+                            <input type="text" id="gen-prefix" class="form-control" placeholder="ตัวย่อภาษาอังกฤษตัวพิมพ์ใหญ่">
+                            <button class="btn btn-primary" onclick="savePrefix()">บันทึกตัวย่อ</button>
+                        </div>
+                    </div>
+
+                    <div id="generate-box" style="display: none;">
+                        <p class="small text-muted mb-2">ตัวย่อปัจจุบัน: <strong id="gen-current-prefix" class="text-primary"></strong> | เลขล่าสุด: <strong id="gen-current-seq"></strong></p>
+                        <label class="form-label small fw-bold">จำนวนดวงที่ต้องการสร้าง</label>
+                        <input type="number" id="gen-count" class="form-control form-control-sm mb-2" value="10" min="1" max="100">
+                        <small class="text-muted">แนะนำสร้างครั้งละ 10-50 ดวง (สติ๊กเกอร์ A4)</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="button" class="btn btn-success btn-sm fw-bold" id="btn-submit-generate" style="display: none;" onclick="submitGenerate()">
+                        สร้าง QR Code
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- JavaScript Dependencies -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -172,6 +223,7 @@
             const badgeEl = document.getElementById('role-scope-badge');
             if (badgeEl) {
                 if (isAdmin) {
+                document.querySelectorAll(".admin-only").forEach(el => el.style.display = "");
                     badgeEl.innerHTML = `<span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1 rounded-pill"><i class="fa-solid fa-user-shield me-1"></i>สิทธิ์ Admin: แสดงและสั่งพิมพ์ QR Code ได้ทุกสังกัด</span>`;
                 } else {
                     const myDept = currentUserDeptName || 'สังกัดตนเอง';
@@ -289,19 +341,10 @@
             }
 
             items.forEach((eq) => {
-                const qrSrc = eq.qr_code || `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(eq.computer_name || '')}`;
+                const targetScanUrl = `${window.location.origin}/repair.html?code=${encodeURIComponent(eq.computer_name || '')}`;
+                const qrSrc = eq.qr_code || `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(targetScanUrl)}`;
                 
-                const deptText = getDeptName(eq);
-                const orgText = getOrgName(eq);
-                
-                let deptOrgLabel = '-';
-                if (deptText && orgText) {
-                    deptOrgLabel = `${escapeHtml(deptText)} (${escapeHtml(orgText)})`;
-                } else if (deptText) {
-                    deptOrgLabel = escapeHtml(deptText);
-                } else if (orgText) {
-                    deptOrgLabel = escapeHtml(orgText);
-                }
+                const deptOrgLabel = 'หน่วยบัญชาการอากาศโยธิน';
 
                 const card = document.createElement('div');
                 card.className = 'qr-card shadow-sm';
@@ -314,7 +357,7 @@
                         ${escapeHtml(eq.computer_name)}
                     </div>
                     <img src="${qrSrc}" alt="QR Code">
-                    <div class="text-truncate text-muted" style="font-size: 10px;" title="${deptOrgLabel}">
+                    <div class="text-muted text-center" style="font-size: 10px; line-height: 1.3;" title="${deptOrgLabel}">
                         ${deptOrgLabel}
                     </div>
                 `;
@@ -372,6 +415,116 @@
         function escapeHtml(str) {
             if (!str) return '';
             return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        let categoriesData = [];
+
+        async function openGenerateModal() {
+            try {
+                const res = await fetch('/api/categories');
+                categoriesData = await res.json();
+                
+                let html = '<option value="">-- กรุณาเลือก --</option>';
+                categoriesData.forEach(c => {
+                    html += `<option value="${c.id}">${escapeHtml(c.name)}</option>`;
+                });
+                document.getElementById('gen-category').innerHTML = html;
+                
+                document.getElementById('prefix-setup-box').style.display = 'none';
+                document.getElementById('generate-box').style.display = 'none';
+                document.getElementById('btn-submit-generate').style.display = 'none';
+                
+                const modal = new bootstrap.Modal(document.getElementById('generateQrModal'));
+                modal.show();
+            } catch(e) {
+                console.error('Error in openGenerateModal:', e);
+                alert('โหลดข้อมูลหมวดหมู่ล้มเหลว');
+            }
+        }
+
+        function onGenCategoryChange() {
+            const catId = document.getElementById('gen-category').value;
+            const prefixBox = document.getElementById('prefix-setup-box');
+            const genBox = document.getElementById('generate-box');
+            const submitBtn = document.getElementById('btn-submit-generate');
+            
+            if (!catId) {
+                prefixBox.style.display = 'none';
+                genBox.style.display = 'none';
+                submitBtn.style.display = 'none';
+                return;
+            }
+
+            const cat = categoriesData.find(c => String(c.id) === String(catId));
+            if (!cat || !cat.prefix) {
+                prefixBox.style.display = 'block';
+                genBox.style.display = 'none';
+                submitBtn.style.display = 'none';
+            } else {
+                prefixBox.style.display = 'none';
+                genBox.style.display = 'block';
+                submitBtn.style.display = 'block';
+                document.getElementById('gen-current-prefix').innerText = cat.prefix;
+                document.getElementById('gen-current-seq').innerText = cat.last_seq || '0';
+            }
+        }
+
+        async function savePrefix() {
+            const catId = document.getElementById('gen-category').value;
+            const prefix = document.getElementById('gen-prefix').value.trim();
+            if (!prefix) return alert('กรุณากรอกตัวย่อ');
+
+            try {
+                const res = await fetch(`/api/categories/${catId}/prefix`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prefix })
+                });
+                if (res.ok) {
+                    alert('บันทึกสำเร็จ');
+                    await openGenerateModal();
+                } else {
+                    const d = await res.json();
+                    alert(d.message || 'บันทึกล้มเหลว');
+                }
+            } catch(e) {
+                alert('การเชื่อมต่อล้มเหลว');
+            }
+        }
+
+        async function submitGenerate() {
+            const catId = document.getElementById('gen-category').value;
+            const count = document.getElementById('gen-count').value;
+            
+            if (!catId || count < 1) return alert('กรุณาระบุข้อมูลให้ครบ');
+            
+            const submitBtn = document.getElementById('btn-submit-generate');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> กำลังสร้าง...';
+            
+            try {
+                const res = await fetch('/api/equipments/generate-qr', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ category_id: catId, count })
+                });
+                const data = await res.json();
+                
+                if (res.ok) {
+                    alert('สร้างสำเร็จ ' + data.data.length + ' ดวง');
+                    const modalEl = document.getElementById('generateQrModal');
+                    const modalInst = bootstrap.Modal.getInstance(modalEl);
+                    if (modalInst) modalInst.hide();
+                    await loadEquipments();
+                } else {
+                    alert(data.message || 'เกิดข้อผิดพลาด');
+                }
+            } catch(e) {
+                alert('เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'สร้าง QR Code';
+            }
         }
     </script>
 </body>

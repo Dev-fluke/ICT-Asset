@@ -192,3 +192,20 @@ html, body {
         display: block;
     }
 }
+
+/* Global Placeholder Styling */
+::placeholder, .form-control::placeholder, textarea::placeholder {
+    color: #adb5bd !important;
+    font-weight: 300 !important;
+    opacity: 0.75 !important;
+}
+
+/* Disabled & Readonly Input Uniform Dark Gray (#e9ecef) */
+.form-control[readonly],
+.form-control:disabled,
+.form-select:disabled,
+#eq-computer-name,
+#edit-computer-name {
+    background-color: #e9ecef !important;
+    cursor: not-allowed;
+}

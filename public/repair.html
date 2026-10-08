@@ -60,10 +60,99 @@
             box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15);
             border-color: #0d6efd;
         }
+        ::placeholder, .form-control::placeholder, textarea::placeholder {
+            color: #adb5bd !important;
+            font-weight: 300 !important;
+            opacity: 0.75 !important;
+        }
         @media (max-width: 576px) {
             body { padding: 0.5rem; }
             .card-custom { padding: 1rem !important; }
             .btn { padding: 0.4rem 0.8rem; font-size: 0.9rem; }
+        }
+
+        /* Custom Non-blocking Image Lightbox Overlay */
+        .image-lightbox-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(15, 23, 42, 0.88);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            z-index: 99999 !important;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .image-lightbox-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .image-lightbox-card {
+            background: #1e293b;
+            border-radius: 14px;
+            max-width: 90vw;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.1);
+            transform: scale(0.96);
+            transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .image-lightbox-overlay.active .image-lightbox-card {
+            transform: scale(1);
+        }
+        .image-lightbox-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 18px;
+            background: #0f172a;
+            color: #fff;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .image-lightbox-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #f1f5f9;
+        }
+        .image-lightbox-close {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            font-size: 1.35rem;
+            cursor: pointer;
+            line-height: 1;
+            padding: 4px 8px;
+            border-radius: 6px;
+            transition: all 0.15s ease;
+        }
+        .image-lightbox-close:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .image-lightbox-body {
+            padding: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #090d16;
+            overflow: auto;
+        }
+        .image-lightbox-body img {
+            max-width: 100%;
+            max-height: 75vh;
+            object-fit: contain;
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
         }
     </style>
 </head>
@@ -75,12 +164,12 @@
                 <h4 class="fw-bold m-0 text-primary">
                     <i class="fa-solid fa-boxes-packing me-2"></i>ระบบจัดการครุภัณฑ์สารสนเทศ อย.
                 </h4>
-                <div class="d-flex flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2">
                     <button type="button" id="btn-toggle-edit" class="btn btn-sm btn-outline-warning staff-or-admin" style="display: none;" onclick="toggleEditMode()">
                         <i class="fa-solid fa-pen-to-square me-1"></i> แก้ไขข้อมูล
                     </button>
-                    <button type="button" class="btn btn-sm btn-outline-danger staff-or-admin" style="display: none;" onclick="logoutAdmin()" title="ออกจากระบบ">
-                        <i class="fa-solid fa-right-from-bracket me-1"></i> ออกจากระบบ (<span id="user-display-name"></span>)
+                    <button type="button" id="btn-logout" class="btn btn-sm btn-outline-danger staff-or-admin" style="display: none;" onclick="logoutAdmin()" title="ออกจากระบบ">
+                        <i class="fa-solid fa-right-from-bracket me-1"></i> ออกจากระบบ
                     </button>
                 </div>
             </div>
@@ -95,16 +184,38 @@
 
                 <!-- View Mode -->
                 <div id="view-mode-card" style="display: none;">
+                    <!-- แถบแจ้งเตือนกรณีครุภัณฑ์ยังรอลงทะเบียน -->
+                    <div id="reg-pending-banner" class="alert alert-warning border-warning flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-3 shadow-sm d-none">
+                        <div class="d-flex align-items-center">
+                            <i class="fa-solid fa-clock-rotate-left me-2 text-warning fs-4"></i>
+                            <div>
+                                <strong class="d-block text-dark">ครุภัณฑ์นี้อยู่ในสถานะ "รอลงทะเบียน"</strong>
+                                <small class="text-muted">ยังไม่มีข้อมูลผู้ใช้งานและสังกัด เจ้าหน้าที่สามารถลงทะเบียนได้ทันที</small>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-primary staff-or-admin text-nowrap shadow-sm" onclick="toggleEditMode(true)">
+                            <i class="fa-solid fa-file-signature me-1"></i> ลงทะเบียนข้อมูลครุภัณฑ์
+                        </button>
+                    </div>
+
                     <div class="bg-light p-3 p-md-4 rounded border">
-                        <div class="row g-3">
-                            <div class="col-sm-6"><strong>ชื่อเครื่อง:</strong> <span id="v-computer-name" class="text-primary fw-bold"></span></div>
-                            <div class="col-sm-6"><strong>สถานะปัจจุบัน:</strong> <span id="v-status-badge"></span></div>
-                            <div class="col-sm-6"><strong>ชื่อผู้ใช้งาน:</strong> <span id="v-user-name"></span></div>
-                            <div class="col-sm-6"><strong>ตำแหน่ง:</strong> <span id="v-position"></span></div>
-                            <div class="col-sm-6"><strong>เบอร์โทรศัพท์:</strong> <span id="v-phone"></span></div>
-                            <div class="col-sm-6"><strong>หมวดหมู่:</strong> <span id="v-category"></span></div>
-                            <div class="col-sm-6"><strong>สังกัด:</strong> <span id="v-department"></span></div>
-                            <div class="col-sm-12"><strong>หน่วยงาน:</strong> <span id="v-organization"></span></div>
+                        <div class="row g-3 align-items-center">
+                            <div class="col-md-3 text-center" id="v-image-col" style="display: none;">
+                                <img id="v-image" src="" alt="รูปภาพครุภัณฑ์" class="img-fluid rounded border shadow-sm" style="max-height: 150px; max-width: 100%; object-fit: cover; cursor: pointer;" onclick="previewImageModal(this.src, document.getElementById('v-computer-name').textContent)" title="คลิกเพื่อดูภาพขยาย">
+                                <div class="mt-1"><small class="text-muted" style="font-size: 0.7rem;"><i class="fa-solid fa-magnifying-glass-plus me-1"></i>ดูรูปขยาย</small></div>
+                            </div>
+                            <div class="col-md-12" id="v-info-col">
+                                <div class="row g-3">
+                                    <div class="col-sm-6"><strong>ชื่อเครื่อง:</strong> <span id="v-computer-name" class="text-primary fw-bold"></span></div>
+                                    <div class="col-sm-6"><strong>สถานะปัจจุบัน:</strong> <span id="v-status-badge"></span></div>
+                                    <div class="col-sm-6"><strong>ชื่อผู้ใช้งาน:</strong> <span id="v-user-name"></span></div>
+                                    <div class="col-sm-6"><strong>ตำแหน่ง:</strong> <span id="v-position"></span></div>
+                                    <div class="col-sm-6"><strong>เบอร์โทรศัพท์:</strong> <span id="v-phone"></span></div>
+                                    <div class="col-sm-6"><strong>หมวดหมู่:</strong> <span id="v-category"></span></div>
+                                    <div class="col-sm-6"><strong>สังกัด:</strong> <span id="v-department"></span></div>
+                                    <div class="col-sm-12"><strong>หน่วยงาน:</strong> <span id="v-organization"></span></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -114,28 +225,29 @@
                     <form id="edit-eq-form" class="bg-light p-3 p-md-4 rounded border">
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label class="form-label small fw-bold">ชื่อเครื่อง <span class="text-danger">*</span></label>
-                                <input type="text" id="edit-computer-name" class="form-control form-control-sm" required>
+                                <label class="form-label small fw-bold">ชื่อเครื่อง <span class="text-muted" style="font-size: 0.65rem;">(ไม่อนุญาตให้แก้ไข)</span></label>
+                                <input type="text" id="edit-computer-name" class="form-control form-control-sm bg-light" readonly required>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label small fw-bold">สถานะ</label>
                                 <select id="edit-status" class="form-select form-select-sm">
                                     <option value="ใช้งานปกติ">ใช้งานปกติ</option>
+                                    <option value="รอลงทะเบียน">รอลงทะเบียน</option>
                                     <option value="ส่งซ่อม">ส่งซ่อม</option>
                                     <option value="จำหน่าย">จำหน่าย</option>
                                 </select>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label small fw-bold">ชื่อผู้ใช้งาน</label>
-                                <input type="text" id="edit-user-name" class="form-control form-control-sm">
+                                <input type="text" id="edit-user-name" class="form-control form-control-sm" placeholder="ยศ-ชื่อ-สกุล">
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label small fw-bold">ตำแหน่ง</label>
-                                <input type="text" id="edit-position" class="form-control form-control-sm" placeholder="ระบุตำแหน่ง">
+                                <input type="text" id="edit-position" class="form-control form-control-sm" placeholder="เช่น สมน.ผธก.อย.">
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label small fw-bold">เบอร์โทรศัพท์</label>
-                                <input type="text" id="edit-phone" class="form-control form-control-sm">
+                                <input type="text" id="edit-phone" class="form-control form-control-sm" placeholder="2-6366">
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label small fw-bold">อีเมล ทอ.</label>
@@ -144,13 +256,8 @@
                             
                             <!-- หมวดหมู่ -->
                             <div class="col-md-6">
-                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                    <label class="form-label small fw-bold mb-0">หมวดหมู่</label>
-                                    <button type="button" id="btn-manage-category" class="btn btn-xs btn-outline-primary py-0 px-1 admin-only-action" style="font-size: 0.7rem; display: none;" onclick="openManageModal('category')">
-                                        <i class="fa-solid fa-gear"></i> จัดการหมวดหมู่
-                                    </button>
-                                </div>
-                                <select id="edit-category" class="form-select form-select-sm">
+                                <label class="form-label small fw-bold mb-1">หมวดหมู่ <span class="text-muted" style="font-size: 0.65rem;">(ไม่อนุญาตให้แก้ไข)</span></label>
+                                <select id="edit-category" class="form-select form-select-sm bg-light" disabled>
                                     <option value="">-- เลือกหมวดหมู่ --</option>
                                 </select>
                             </div>
@@ -178,6 +285,43 @@
                                     <option value="">-- เลือกหน่วยงาน --</option>
                                 </select>
                             </div>
+
+                            <!-- รูปภาพครุภัณฑ์ -->
+                            <div class="col-12">
+                                <label class="form-label small fw-bold mb-1"><i class="fa-solid fa-camera me-1 text-primary"></i>รูปภาพครุภัณฑ์</label>
+                                <div class="p-3 border rounded bg-white">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div id="edit-image-preview-container" class="position-relative border rounded bg-light d-flex align-items-center justify-content-center overflow-hidden shadow-sm" style="width: 84px; height: 84px; min-width: 84px;">
+                                            <img id="edit-image-preview" src="" alt="รูปภาพ" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+                                            <div id="edit-image-placeholder" class="text-center text-muted p-1">
+                                                <i class="fa-solid fa-image text-secondary opacity-50 fa-2x mb-1"></i>
+                                                <div style="font-size: 0.65rem;">ไม่มีรูป</div>
+                                            </div>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <!-- Hidden inputs for camera capture and gallery selection -->
+                                            <input type="file" id="edit-camera-input" accept="image/*" capture="environment" style="display: none;" onchange="handleRepairImageInputChange(event)">
+                                            <input type="file" id="edit-gallery-input" accept="image/*" style="display: none;" onchange="handleRepairImageInputChange(event)">
+                                            
+                                            <div class="d-flex gap-2 mb-2">
+                                                <button type="button" class="btn btn-outline-primary btn-sm flex-fill" onclick="document.getElementById('edit-camera-input').click()">
+                                                    <i class="fa-solid fa-camera me-1"></i> ถ่ายรูป
+                                                </button>
+                                                <button type="button" class="btn btn-outline-secondary btn-sm flex-fill" onclick="document.getElementById('edit-gallery-input').click()">
+                                                    <i class="fa-solid fa-images me-1"></i> แนบรูป
+                                                </button>
+                                            </div>
+
+                                            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                                <small class="text-muted" style="font-size: 0.72rem;">รองรับไฟล์ JPG, PNG, WEBP (ไม่เกิน 10MB)</small>
+                                                <button type="button" id="btn-remove-edit-image" class="btn btn-outline-danger btn-sm py-0 px-2" style="display: none; font-size: 0.72rem;" onclick="removeRepairSelectedImage()">
+                                                    <i class="fa-solid fa-trash-can me-1"></i> ลบรูปภาพ
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                             
                             <!-- ส่วนข้อมูลรายละเอียดเพิ่มเติม -->
                             <div class="col-12 border-top pt-3 mt-2">
@@ -186,7 +330,7 @@
                                         <i class="fa-solid fa-list-check me-1"></i> รายละเอียดเพิ่มเติม / สเปก
                                     </label>
                                     <div class="d-flex align-items-center gap-1">
-                                        <button type="button" class="btn btn-xs btn-outline-secondary me-1 staff-or-admin" style="font-size: 0.75rem; padding: 2px 6px; display: none;" data-bs-toggle="modal" data-bs-target="#manageAttributeModal">
+                                        <button type="button" class="btn btn-xs btn-outline-secondary me-1 staff-or-admin" style="font-size: 0.75rem; padding: 2px 6px; display: none;" onclick="openManageAttributeModal()">
                                             <i class="fa-solid fa-gear me-1"></i> จัดการหัวข้อ
                                         </button>
                                         <button type="button" class="btn btn-xs btn-outline-success" style="font-size: 0.75rem; padding: 2px 6px;" onclick="addDetailRow()">
@@ -208,20 +352,110 @@
                 </div>
             </div>
 
-            <!-- Modal จัดการหัวข้อสเปกมาตรฐาน -->
+            <!-- Modal จัดการหัวข้อสเปกตามหมวดหมู่ -->
             <div class="modal fade" id="manageAttributeModal" tabindex="-1">
-                <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-dialog modal-dialog-centered modal-lg">
                     <div class="modal-content border-0 shadow">
                         <div class="modal-header bg-light">
-                            <h5 class="modal-title fw-bold fs-6">⚙️ จัดการหัวข้อสเปกมาตรฐาน</h5>
+                            <h5 class="modal-title fw-bold fs-6">⚙️ จัดการหัวข้อสเปกตามหมวดหมู่</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
                         <div class="modal-body p-4">
-                            <div class="input-group mb-3">
-                                <input type="text" id="new-attr-name" class="form-control form-control-sm" placeholder="ระบุชื่อหัวข้อใหม่ (เช่น RAM, CPU)">
-                                <button class="btn btn-primary btn-sm" onclick="addAttribute()">➕ เพิ่ม</button>
+                            <!-- เลือกหมวดหมู่ -->
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold">เลือกหมวดหมู่ที่ต้องการจัดการหัวข้อสเปก <span class="text-danger">*</span></label>
+                                <select id="modal-attr-category-select" class="form-select form-select-sm fw-semibold" onchange="loadCategoryAttributesForModal()">
+                                    <option value="">-- เลือกหมวดหมู่ --</option>
+                                </select>
                             </div>
-                            <ul class="list-group small" id="attribute-list"></ul>
+
+                            <!-- ฟอร์มเพิ่มหัวข้อใหม่สำหรับหมวดหมู่นี้ -->
+                            <div class="card border mb-3 bg-light">
+                                <div class="card-body p-3">
+                                    <h6 class="fw-bold mb-2 small text-primary"><i class="fa-solid fa-plus-circle me-1"></i>เพิ่มหัวข้อสเปกใหม่ในหมวดหมู่นี้</h6>
+                                    <form id="add-attribute-form" onsubmit="submitNewAttribute(event)">
+                                        <div class="row g-2 align-items-center">
+                                            <div class="col-md-5">
+                                                <label class="form-label small fw-bold mb-1">ชื่อหัวข้อ <span class="text-danger">*</span></label>
+                                                <input type="text" id="new-attr-name" class="form-control form-control-sm" placeholder="เช่น RAM, CPU, ขนาดหน้าจอ" required>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label small fw-bold mb-1">ประเภทช่องกรอก</label>
+                                                <select id="new-attr-type" class="form-select form-select-sm" onchange="toggleAttributeOptionsInput('new')">
+                                                    <option value="text">ข้อความทั่วไป (Text)</option>
+                                                    <option value="select">ตัวเลือก (Dropdown)</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label small fw-bold mb-1 d-block">การบังคับกรอก</label>
+                                                <div class="form-check form-switch mt-1">
+                                                    <input class="form-check-input" type="checkbox" id="new-attr-required">
+                                                    <label class="form-check-label small" for="new-attr-required">บังคับกรอก</label>
+                                                </div>
+                                            </div>
+                                            <!-- ตัวเลือกเพิ่มเติมกรณีเลือก Dropdown -->
+                                            <div class="col-12" id="new-attr-options-container" style="display: none;">
+                                                <label class="form-label small fw-bold mb-1">ตัวเลือกใน Dropdown (คั่นด้วยเครื่องหมายจุลภาค ,)</label>
+                                                <input type="text" id="new-attr-options" class="form-control form-control-sm" placeholder="เช่น 4GB, 8GB, 16GB, 32GB">
+                                                <small class="text-muted" style="font-size: 0.75rem;">คั่นแต่ละตัวเลือกด้วยเครื่องหมายจุลภาค (,) เช่น 4GB, 8GB, 16GB</small>
+                                            </div>
+                                            <div class="col-12 text-end pt-1">
+                                                <button type="submit" class="btn btn-primary btn-sm px-3" id="btn-add-attr">➕ บันทึกหัวข้อใหม่</button>
+                                            </div>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+
+                            <!-- รายการหัวข้อทั้งหมดในหมวดหมู่นี้ -->
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="small fw-bold text-secondary">รายการหัวข้อสเปกมาตรฐาน:</span>
+                                <small class="text-muted" id="attr-count-label"></small>
+                            </div>
+                            <ul class="list-group" id="attribute-list"></ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal แก้ไขหัวข้อสเปก -->
+            <div class="modal fade" id="editAttributeModal" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content border-0 shadow">
+                        <div class="modal-header bg-warning-subtle">
+                            <h5 class="modal-title fw-bold fs-6">✏️ แก้ไขหัวข้อสเปก</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body p-4">
+                            <form id="edit-attribute-form" onsubmit="submitEditAttribute(event)">
+                                <input type="hidden" id="edit-attr-id">
+                                <div class="mb-3">
+                                    <label class="form-label small fw-bold">ชื่อหัวข้อ <span class="text-danger">*</span></label>
+                                    <input type="text" id="edit-attr-name" class="form-control form-control-sm" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label small fw-bold">ประเภทช่องกรอก</label>
+                                    <select id="edit-attr-type" class="form-select form-select-sm" onchange="toggleAttributeOptionsInput('edit')">
+                                        <option value="text">ข้อความทั่วไป (Text)</option>
+                                        <option value="select">ตัวเลือก (Dropdown)</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3" id="edit-attr-options-container" style="display: none;">
+                                    <label class="form-label small fw-bold">ตัวเลือกใน Dropdown (คั่นด้วยเครื่องหมายจุลภาค ,)</label>
+                                    <input type="text" id="edit-attr-options" class="form-control form-control-sm" placeholder="เช่น 4GB, 8GB, 16GB, 32GB">
+                                    <small class="text-muted" style="font-size: 0.75rem;">คั่นแต่ละตัวเลือกด้วยเครื่องหมายจุลภาค (,)</small>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="edit-attr-required">
+                                        <label class="form-check-label fw-bold small" for="edit-attr-required">บังคับกรอกสเปกนี้</label>
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-end gap-2">
+                                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ยกเลิก</button>
+                                    <button type="submit" class="btn btn-warning btn-sm px-4">บันทึกการแก้ไข</button>
+                                </div>
+                            </form>
                         </div>
                     </div>
                 </div>
@@ -311,6 +545,28 @@
                             <label class="form-label small fw-bold">อาการเสีย / ปัญหาที่พบ <span class="text-danger">*</span></label>
                             <textarea id="symptom" class="form-control form-control-sm" rows="3" placeholder="ระบุอาการ..."></textarea>
                         </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold"><i class="fa-solid fa-camera me-1 text-primary"></i>รูปถ่ายอาการเสีย / บริเวณที่ชำรุด (ถ้ามี)</label>
+                            <!-- Hidden inputs for camera capture and gallery selection -->
+                            <input type="file" id="repair-report-camera-input" accept="image/*" capture="environment" style="display: none;" onchange="handleRepairReportPhotoChange(event)">
+                            <input type="file" id="repair-report-gallery-input" accept="image/*" style="display: none;" onchange="handleRepairReportPhotoChange(event)">
+                            
+                            <div class="d-flex gap-2 mb-2">
+                                <button type="button" class="btn btn-outline-primary btn-sm flex-fill" onclick="document.getElementById('repair-report-camera-input').click()">
+                                    <i class="fa-solid fa-camera me-1"></i> ถ่ายรูป
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm flex-fill" onclick="document.getElementById('repair-report-gallery-input').click()">
+                                    <i class="fa-solid fa-images me-1"></i> แนบรูป
+                                </button>
+                            </div>
+
+                            <div id="repair-report-photo-preview-box" class="position-relative text-center border rounded p-2 bg-white" style="display: none;">
+                                <img id="repair-report-photo-preview" src="" alt="รูปถ่ายอาการเสีย" class="img-fluid rounded" style="max-height: 160px; object-fit: contain;">
+                                <button type="button" class="btn btn-danger btn-sm position-absolute top-0 end-0 m-1 rounded-circle p-0 d-flex align-items-center justify-content-center" style="width: 24px; height: 24px;" onclick="clearRepairReportPhoto()" title="ลบรูป">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+                        </div>
                         <button id="btn-submit-repair" onclick="submitRepair()" class="btn btn-danger btn-sm w-100 shadow-sm">
                             <i class="fa-solid fa-paper-plane me-1"></i> ส่งเรื่องแจ้งซ่อม
                         </button>
@@ -318,6 +574,23 @@
                 </div>
             </div>
 
+        </div>
+    </div>
+
+    <!-- Custom Fullscreen Image Lightbox Overlay (ไม่สร้าง Backdrop ซ้อน ป้องกันจอค้าง 100%) -->
+    <div id="imageLightboxOverlay" class="image-lightbox-overlay" onclick="closeImageLightbox(event)">
+        <div class="image-lightbox-card" onclick="event.stopPropagation()">
+            <div class="image-lightbox-header">
+                <div id="imageLightboxTitle" class="image-lightbox-title">
+                    <i class="fa-solid fa-image me-2 text-info"></i>รูปภาพครุภัณฑ์
+                </div>
+                <button type="button" class="image-lightbox-close" onclick="closeImageLightbox(event)" title="ปิด (Esc)">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="image-lightbox-body">
+                <img id="imageLightboxImg" src="" alt="รูปภาพขยาย">
+            </div>
         </div>
     </div>
 
@@ -339,6 +612,8 @@
         let departmentOptions = [];
         let organizationOptions = []; 
         let currentAttributes = [];
+        let currentCategoryAttributes = [];
+        let modalCategoryAttributes = [];
         let activeAuditRound = null;
         let currentManageType = ''; // 'category', 'department', 'organization'
 
@@ -350,11 +625,14 @@
             }
 
             await loadOptions();
-            await loadAttributes();
             await loadActiveAuditRounds();
             await loadEquipmentDetail();
             await checkSystemSettingsForRepair();
         };
+
+        async function loadAttributes() {
+            // compatibility fallback
+        }
 
         async function checkSystemSettingsForRepair() {
             try {
@@ -382,9 +660,14 @@
         }
 
         function checkUserRole() {
-            const storedRole = (localStorage.getItem('user_role') || '').toLowerCase();
-            const storedName = localStorage.getItem('user_fullname') || 'เจ้าหน้าที่';
-            const storedDeptId = localStorage.getItem('user_dept_id');
+            let storedUser = {};
+            try {
+                storedUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+            } catch(e) {}
+
+            const storedRole = (storedUser.role || localStorage.getItem('user_role') || '').toLowerCase();
+            const storedName = storedUser.fullname || localStorage.getItem('user_fullname') || storedUser.username || 'เจ้าหน้าที่';
+            const storedDeptId = storedUser.department_id || localStorage.getItem('user_dept_id');
             const eqDeptId = currentEquipment ? (currentEquipment.department_id || (currentEquipment.department ? currentEquipment.department.id : null)) : null;
 
             const isAuthorized = storedRole === 'admin' || storedRole === 'staff';
@@ -398,14 +681,19 @@
             document.querySelectorAll('.staff-or-admin').forEach(el => {
                 if (el.id === 'admin-audit-section') {
                     el.style.display = (isAuthorized && activeAuditRound) ? 'block' : 'none';
-                } else if (el.id === 'btn-toggle-edit') {
-                    if (storedRole === 'staff' && String(storedDeptId) !== String(eqDeptId)) {
-                        el.style.display = 'none';
+                } else if (el.id === 'btn-toggle-edit' || el.id === 'btn-logout') {
+                    if (el.id === 'btn-toggle-edit') {
+                        // ถ้าอุปกรณ์มีสังกัดแล้ว และเป็น Staff คนละสังกัด ไม่ให้แก้ไข แต่ถ้ายังไม่มีสังกัด (เช่น รอลงทะเบียน) ให้ลงทะเบียนได้
+                        if (storedRole === 'staff' && eqDeptId && String(storedDeptId) !== String(eqDeptId)) {
+                            el.style.display = 'none';
+                        } else {
+                            el.style.display = isAuthorized ? 'inline-block' : 'none';
+                        }
                     } else {
                         el.style.display = isAuthorized ? 'inline-block' : 'none';
                     }
                 } else {
-                    el.style.display = isAuthorized ? 'block' : 'none';
+                    el.style.display = isAuthorized ? 'inline-block' : 'none';
                 }
             });
 
@@ -454,10 +742,14 @@
                         return;
                     }
 
+                    localStorage.setItem('isLoggedIn', 'true');
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    localStorage.setItem('user_session', JSON.stringify(data.user));
                     localStorage.setItem('user_id', data.user.id);
                     localStorage.setItem('user_role', userRole);
                     localStorage.setItem('user_dept_id', userDeptId || '');
                     localStorage.setItem('user_fullname', data.user.fullname || data.user.username);
+                    document.cookie = "browser_session_active=true; path=/; SameSite=Lax";
 
                     alert(`เข้าสู่ระบบสำเร็จ! ยินดีต้อนรับ ${data.user.fullname || username}`);
                     checkUserRole();
@@ -473,15 +765,25 @@
             }
         }
 
-        function logoutAdmin() {
-            if (confirm('คุณต้องการออกจากระบบหรือไม่?')) {
-                localStorage.removeItem('user_id');
-                localStorage.removeItem('user_role');
-                localStorage.removeItem('user_dept_id');
-                localStorage.removeItem('user_fullname');
-                checkUserRole();
-                if (typeof isEditMode !== 'undefined' && isEditMode) toggleEditMode(false);
-            }
+        async function logoutAdmin() {
+            if (!confirm('คุณต้องการออกจากระบบหรือไม่?')) return;
+
+            try {
+                await fetch('/api/logout', { method: 'POST' }).catch(() => {});
+            } catch (e) {}
+
+            localStorage.removeItem('isLoggedIn');
+            localStorage.removeItem('user');
+            localStorage.removeItem('user_session');
+            localStorage.removeItem('user_id');
+            localStorage.removeItem('user_role');
+            localStorage.removeItem('user_dept_id');
+            localStorage.removeItem('user_fullname');
+            sessionStorage.clear();
+            document.cookie = "browser_session_active=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+
+            alert('ออกจากระบบเรียบร้อยแล้ว');
+            window.location.reload();
         }
 
         async function loadOptions() {
@@ -503,107 +805,271 @@
             }
         }
 
-        async function loadAttributes() {
+        async function openManageAttributeModal() {
+            await initManageAttributeModal();
+        }
+
+        async function initManageAttributeModal() {
+            const selectEl = document.getElementById('modal-attr-category-select');
+            if (!selectEl) return;
+
+            let html = '<option value="">-- เลือกหมวดหมู่ --</option>';
+            if (Array.isArray(categoryOptions)) {
+                categoryOptions.forEach(c => {
+                    html += `<option value="${c.id}">${escapeHtml(c.name)} (${escapeHtml(c.prefix || '-')})</option>`;
+                });
+            }
+            selectEl.innerHTML = html;
+
+            const currentEqCat = document.getElementById('edit-category')?.value || (currentEquipment ? (currentEquipment.category_id || (currentEquipment.category ? currentEquipment.category.id : '')) : '');
+            if (currentEqCat) {
+                selectEl.value = currentEqCat;
+            } else if (categoryOptions.length > 0) {
+                selectEl.value = categoryOptions[0].id;
+            }
+
+            await loadCategoryAttributesForModal();
+            new bootstrap.Modal(document.getElementById('manageAttributeModal')).show();
+        }
+
+        async function loadCategoryAttributesForModal() {
+            const catId = document.getElementById('modal-attr-category-select').value;
+            const listEl = document.getElementById('attribute-list');
+            const countEl = document.getElementById('attr-count-label');
+            const addBtn = document.getElementById('btn-add-attr');
+
+            if (!catId) {
+                listEl.innerHTML = '<li class="list-group-item text-center text-muted py-3">กรุณาเลือกหมวดหมู่ที่ต้องการจัดการหัวข้อ</li>';
+                if (countEl) countEl.textContent = '';
+                if (addBtn) addBtn.disabled = true;
+                modalCategoryAttributes = [];
+                return;
+            }
+
+            if (addBtn) addBtn.disabled = false;
+
             try {
-                const res = await fetch('/api/equipment-attributes');
+                const res = await fetch(`/api/equipment-attributes?category_id=${catId}`);
                 if (res.ok) {
-                    currentAttributes = await res.json();
-                    renderAttributesOptions();
+                    modalCategoryAttributes = await res.json();
+                    renderModalAttributesList();
+                } else {
+                    listEl.innerHTML = '<li class="list-group-item text-center text-danger py-3">เกิดข้อผิดพลาดในการโหลดข้อมูล</li>';
                 }
             } catch (err) {
-                console.error('Error loading attributes:', err);
+                console.error('Error loading modal attributes:', err);
+                listEl.innerHTML = '<li class="list-group-item text-center text-danger py-3">เกิดข้อผิดพลาดในการโหลดข้อมูล</li>';
             }
         }
 
-        function renderAttributesOptions() {
-            let attrListHtml = '';
-            if (Array.isArray(currentAttributes) && currentAttributes.length > 0) {
-                currentAttributes.forEach((attr, idx) => {
-                    attrListHtml += `
-                        <li class="list-group-item d-flex justify-content-between align-items-center py-2">
-                            <span>${escapeHtml(attr.name)}</span>
-                            <div class="btn-group btn-group-sm">
-                                <button class="btn btn-outline-secondary btn-sm" style="font-size: 0.7rem;" onclick="moveAttribute(${idx}, 'up')" ${idx === 0 ? 'disabled' : ''}><i class="fa-solid fa-arrow-up"></i></button>
-                                <button class="btn btn-outline-secondary btn-sm" style="font-size: 0.7rem;" onclick="moveAttribute(${idx}, 'down')" ${idx === currentAttributes.length - 1 ? 'disabled' : ''}><i class="fa-solid fa-arrow-down"></i></button>
-                                <button class="btn btn-outline-warning btn-sm" style="font-size: 0.7rem;" onclick="editAttribute(${attr.id}, '${escapeHtml(attr.name)}')"><i class="fa-solid fa-pen-to-square"></i></button>
-                                <button class="btn btn-outline-danger btn-sm" style="font-size: 0.7rem;" onclick="deleteAttribute(${attr.id})"><i class="fa-solid fa-trash"></i></button>
-                            </div>
-                        </li>`;
-                });
-            } else {
-                attrListHtml = '<li class="list-group-item text-center text-muted py-3">ยังไม่มีหัวข้อมาตรฐาน</li>';
+        function renderModalAttributesList() {
+            const listEl = document.getElementById('attribute-list');
+            const countEl = document.getElementById('attr-count-label');
+            if (countEl) countEl.textContent = `ทั้งหมด ${modalCategoryAttributes.length} หัวข้อ`;
+
+            if (!modalCategoryAttributes || modalCategoryAttributes.length === 0) {
+                listEl.innerHTML = '<li class="list-group-item text-center text-muted py-3">ยังไม่มีหัวข้อสเปกสำหรับหมวดหมู่นี้</li>';
+                return;
             }
-            const attrListEl = document.getElementById('attribute-list');
-            if (attrListEl) attrListEl.innerHTML = attrListHtml;
+
+            let html = '';
+            modalCategoryAttributes.forEach((attr, idx) => {
+                let typeBadge = '';
+                if (attr.input_type === 'select') {
+                    const opts = (attr.options || '').split(',').map(s => s.trim()).filter(Boolean);
+                    typeBadge = `<span class="badge bg-info-subtle text-info-emphasis border border-info-subtle me-1" title="ตัวเลือก: ${escapeHtml(attr.options || '')}"><i class="fa-solid fa-list me-1"></i>ตัวเลือก (${opts.length})</span>`;
+                } else {
+                    typeBadge = `<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle me-1"><i class="fa-solid fa-font me-1"></i>ข้อความ</span>`;
+                }
+
+                const reqBadge = attr.is_required ? 
+                    '<span class="badge bg-danger-subtle text-danger border border-danger-subtle me-1"><i class="fa-solid fa-asterisk me-1"></i>จำเป็น</span>' : '';
+
+                html += `
+                    <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+                        <div>
+                            <strong class="me-2">${escapeHtml(attr.name)}</strong>
+                            ${typeBadge}
+                            ${reqBadge}
+                        </div>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-secondary" onclick="moveModalAttribute(${idx}, 'up')" ${idx === 0 ? 'disabled' : ''} title="เลื่อนขึ้น"><i class="fa-solid fa-arrow-up"></i></button>
+                            <button class="btn btn-outline-secondary" onclick="moveModalAttribute(${idx}, 'down')" ${idx === modalCategoryAttributes.length - 1 ? 'disabled' : ''} title="เลื่อนลง"><i class="fa-solid fa-arrow-down"></i></button>
+                            <button class="btn btn-outline-warning" onclick="openEditAttributeModal(${attr.id})" title="แก้ไข"><i class="fa-solid fa-pen-to-square"></i></button>
+                            <button class="btn btn-outline-danger" onclick="deleteModalAttribute(${attr.id})" title="ลบ"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </li>
+                `;
+            });
+            listEl.innerHTML = html;
         }
 
-        async function addAttribute() {
-            const input = document.getElementById('new-attr-name');
-            const name = input.value.trim();
-            if (!name) return alert('กรุณากรอกชื่อหัวข้อ');
+        function toggleAttributeOptionsInput(mode) {
+            const typeEl = document.getElementById(mode === 'edit' ? 'edit-attr-type' : 'new-attr-type');
+            const optionsContainer = document.getElementById(mode === 'edit' ? 'edit-attr-options-container' : 'new-attr-options-container');
+            if (typeEl && optionsContainer) {
+                optionsContainer.style.display = typeEl.value === 'select' ? 'block' : 'none';
+            }
+        }
+
+        async function submitNewAttribute(event) {
+            event.preventDefault();
+            const catId = document.getElementById('modal-attr-category-select').value;
+            if (!catId) return alert('กรุณาเลือกหมวดหมู่ก่อน');
+
+            const nameInput = document.getElementById('new-attr-name');
+            const typeSelect = document.getElementById('new-attr-type');
+            const optionsInput = document.getElementById('new-attr-options');
+            const reqCheck = document.getElementById('new-attr-required');
+
+            const name = nameInput.value.trim();
+            if (!name) return alert('กรุณาระบุชื่อหัวข้อ');
+
+            const input_type = typeSelect.value;
+            const options = optionsInput.value.trim();
+            const is_required = reqCheck.checked ? 1 : 0;
+
+            if (input_type === 'select' && !options) {
+                return alert('กรุณาระบุตัวเลือกสำหรับ Dropdown (คั่นด้วยเครื่องหมายจุลภาค ,)');
+            }
 
             try {
                 const res = await fetch('/api/equipment-attributes', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name })
+                    body: JSON.stringify({ category_id: catId, name, input_type, options, is_required })
                 });
+
                 if (res.ok) {
-                    input.value = '';
-                    await loadAttributes();
-                    updateAllDetailDropdowns();
+                    nameInput.value = '';
+                    optionsInput.value = '';
+                    reqCheck.checked = false;
+                    typeSelect.value = 'text';
+                    toggleAttributeOptionsInput('new');
+
+                    await loadCategoryAttributesForModal();
+                    await syncCategoryAttributesToEditForm(catId);
+                } else {
+                    const err = await res.json();
+                    alert(err.message || 'เกิดข้อผิดพลาดในการบันทึกหัวข้อ');
                 }
-            } catch (err) { alert('เกิดข้อผิดพลาด'); }
+            } catch (err) {
+                alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
+            }
         }
 
-        async function moveAttribute(index, direction) {
+        async function moveModalAttribute(index, direction) {
             const newIndex = direction === 'up' ? index - 1 : index + 1;
-            if (newIndex < 0 || newIndex >= currentAttributes.length) return;
+            if (newIndex < 0 || newIndex >= modalCategoryAttributes.length) return;
 
-            const temp = currentAttributes[index];
-            currentAttributes[index] = currentAttributes[newIndex];
-            currentAttributes[newIndex] = temp;
+            const temp = modalCategoryAttributes[index];
+            modalCategoryAttributes[index] = modalCategoryAttributes[newIndex];
+            modalCategoryAttributes[newIndex] = temp;
 
-            renderAttributesOptions();
-            const payload = currentAttributes.map((item, idx) => ({ id: item.id, sort_order: idx + 1 }));
+            renderModalAttributesList();
+
+            const payload = modalCategoryAttributes.map((item, idx) => ({ id: item.id, sort_order: idx + 1 }));
 
             try {
-                await fetch('/api/equipment-attributes/reorder', {
+                const res = await fetch('/api/equipment-attributes/reorder', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ items: payload })
                 });
-                updateAllDetailDropdowns();
-            } catch (err) { 
-                await loadAttributes(); 
+
+                if (!res.ok) {
+                    alert('ไม่สามารถอัปเดตลำดับหัวข้อได้');
+                    await loadCategoryAttributesForModal();
+                } else {
+                    const catId = document.getElementById('modal-attr-category-select').value;
+                    await syncCategoryAttributesToEditForm(catId);
+                }
+            } catch (err) {
+                alert('เกิดข้อผิดพลาดในการเปลี่ยนลำดับ');
+                await loadCategoryAttributesForModal();
             }
         }
 
-        async function editAttribute(id, currentName) {
-            const name = prompt('แก้ไขชื่อหัวข้อ:', currentName);
-            if (!name || name.trim() === currentName) return;
+        function openEditAttributeModal(id) {
+            const attr = modalCategoryAttributes.find(a => a.id === id);
+            if (!attr) return;
+
+            document.getElementById('edit-attr-id').value = attr.id;
+            document.getElementById('edit-attr-name').value = attr.name || '';
+            document.getElementById('edit-attr-type').value = attr.input_type || 'text';
+            document.getElementById('edit-attr-options').value = attr.options || '';
+            document.getElementById('edit-attr-required').checked = Boolean(attr.is_required);
+
+            toggleAttributeOptionsInput('edit');
+            new bootstrap.Modal(document.getElementById('editAttributeModal')).show();
+        }
+
+        async function submitEditAttribute(event) {
+            event.preventDefault();
+            const id = document.getElementById('edit-attr-id').value;
+            const name = document.getElementById('edit-attr-name').value.trim();
+            const input_type = document.getElementById('edit-attr-type').value;
+            const options = document.getElementById('edit-attr-options').value.trim();
+            const is_required = document.getElementById('edit-attr-required').checked ? 1 : 0;
+
+            if (!name) return alert('กรุณาระบุชื่อหัวข้อ');
+            if (input_type === 'select' && !options) {
+                return alert('กรุณาระบุตัวเลือกสำหรับ Dropdown (คั่นด้วยเครื่องหมายจุลภาค ,)');
+            }
+
             try {
                 const res = await fetch(`/api/equipment-attributes/${id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: name.trim() })
+                    body: JSON.stringify({ name, input_type, options, is_required })
                 });
+
                 if (res.ok) {
-                    await loadAttributes();
-                    updateAllDetailDropdowns();
+                    const modalEl = document.getElementById('editAttributeModal');
+                    bootstrap.Modal.getInstance(modalEl)?.hide();
+
+                    await loadCategoryAttributesForModal();
+                    const catId = document.getElementById('modal-attr-category-select').value;
+                    await syncCategoryAttributesToEditForm(catId);
+                } else {
+                    const err = await res.json();
+                    alert(err.message || 'เกิดข้อผิดพลาดในการแก้ไข');
                 }
-            } catch (err) { alert('เกิดข้อผิดพลาด'); }
+            } catch (err) {
+                alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
+            }
         }
 
-        async function deleteAttribute(id) {
+        async function deleteModalAttribute(id) {
             if (!confirm('ยืนยันการลบหัวข้อนี้?')) return;
             try {
                 const res = await fetch(`/api/equipment-attributes/${id}`, { method: 'DELETE' });
                 if (res.ok) {
-                    await loadAttributes();
-                    updateAllDetailDropdowns();
+                    await loadCategoryAttributesForModal();
+                    const catId = document.getElementById('modal-attr-category-select').value;
+                    await syncCategoryAttributesToEditForm(catId);
+                } else {
+                    const data = await res.json();
+                    alert(data.message || 'ไม่สามารถลบได้');
                 }
-            } catch (err) { alert('เกิดข้อผิดพลาด'); }
+            } catch (err) {
+                alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
+            }
+        }
+
+        async function syncCategoryAttributesToEditForm(catId) {
+            if (!currentEquipment) return;
+            const currentEqCat = currentEquipment.category_id || (currentEquipment.category ? currentEquipment.category.id : null);
+            if (String(currentEqCat) === String(catId)) {
+                try {
+                    const res = await fetch(`/api/equipment-attributes?category_id=${catId}`);
+                    if (res.ok) {
+                        currentCategoryAttributes = await res.json();
+                    }
+                } catch(e) {}
+                const currentData = getDetailListData();
+                populateDetailList(currentData.data || currentEquipment.details);
+            }
         }
 
         function openManageModal(type) {
@@ -836,48 +1302,69 @@
             }
         }
 
-        function updateAllDetailDropdowns() {
-            document.querySelectorAll('.detail-preset-select').forEach(select => {
-                const currentVal = select.value;
-                let options = '<option value="">-- พิมพ์เอง หรือ เลือกหัวข้อ --</option>';
-                if (Array.isArray(currentAttributes)) {
-                    currentAttributes.forEach(attr => {
-                        const selected = attr.name === currentVal ? 'selected' : '';
-                        options += `<option value="${escapeHtml(attr.name)}" ${selected}>${escapeHtml(attr.name)}</option>`;
-                    });
-                }
-                select.innerHTML = options;
-            });
-        }
-
-        function addDetailRow(title = '', value = '') {
+        function addDetailRow(title = '', value = '', meta = {}) {
             const container = document.getElementById('detail-list-container');
             const rowId = 'detail-row-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4);
 
-            let options = '<option value="">-- พิมพ์เอง หรือ เลือกหัวข้อ --</option>';
-            if (Array.isArray(currentAttributes)) {
-                currentAttributes.forEach(attr => {
+            const inputType = meta.input_type || 'text';
+            const isRequired = Boolean(meta.is_required);
+            const optionsStr = meta.options || '';
+            const isPreset = Boolean(meta.is_category_preset);
+
+            let valueInputHtml = '';
+            if (inputType === 'select' && optionsStr) {
+                const optList = optionsStr.split(',').map(s => s.trim()).filter(Boolean);
+                let optionsHtml = '<option value="">-- กรุณาเลือก --</option>';
+                optList.forEach(opt => {
+                    const sel = (opt === value) ? 'selected' : '';
+                    optionsHtml += `<option value="${escapeHtml(opt)}" ${sel}>${escapeHtml(opt)}</option>`;
+                });
+                valueInputHtml = `
+                    <select class="form-select form-select-sm detail-value" data-required="${isRequired ? 'true' : 'false'}" data-title="${escapeHtml(title)}">
+                        ${optionsHtml}
+                    </select>
+                `;
+            } else {
+                valueInputHtml = `
+                    <input type="text" class="form-control form-control-sm detail-value" 
+                           placeholder="${isRequired ? 'จำเป็นต้องกรอก' : 'รายละเอียด / สเปก'}" 
+                           value="${escapeHtml(value)}" 
+                           data-required="${isRequired ? 'true' : 'false'}" 
+                           data-title="${escapeHtml(title)}">
+                `;
+            }
+
+            const reqBadge = isRequired ? '<span class="badge bg-danger-subtle text-danger border border-danger-subtle px-1.5 py-0.5 ms-1" style="font-size: 0.68rem;"><i class="fa-solid fa-asterisk me-0.5"></i>จำเป็น</span>' : '';
+
+            let presetOptions = '<option value="">-- หัวข้อแนะนำ --</option>';
+            if (Array.isArray(currentCategoryAttributes) && currentCategoryAttributes.length > 0) {
+                currentCategoryAttributes.forEach(attr => {
                     const selected = attr.name === title ? 'selected' : '';
-                    options += `<option value="${escapeHtml(attr.name)}" ${selected}>${escapeHtml(attr.name)}</option>`;
+                    presetOptions += `<option value="${escapeHtml(attr.name)}" ${selected}>${escapeHtml(attr.name)}</option>`;
                 });
             }
+
+            const titleInputHtml = isPreset 
+                ? `<input type="text" class="form-control form-control-sm detail-title fw-semibold bg-light" value="${escapeHtml(title)}" readonly>
+                   <span class="input-group-text bg-light py-0 px-2">${reqBadge || '<i class="fa-solid fa-tag text-muted" style="font-size: 0.75rem;"></i>'}</span>`
+                : `<input type="text" class="form-control form-control-sm detail-title" placeholder="พิมพ์ชื่อหัวข้อ..." value="${escapeHtml(title)}">
+                   <select class="form-select text-secondary" style="max-width: 120px;" onchange="selectPresetTitle(this)">
+                       ${presetOptions}
+                   </select>`;
 
             const rowHtml = `
                 <div class="row g-2 mb-2 align-items-center detail-item-row" id="${rowId}">
                     <div class="col-5">
                         <div class="input-group input-group-sm">
-                            <input type="text" class="form-control form-control-sm detail-title" placeholder="พิมพ์ชื่อหัวข้อ..." value="${escapeHtml(title)}">
-                            <select class="form-select form-select-sm text-secondary detail-preset-select" style="max-width: 110px;" onchange="selectPresetTitle(this)">
-                                ${options}
-                            </select>
+                            ${titleInputHtml}
                         </div>
                     </div>
                     <div class="col-6">
-                        <input type="text" class="form-control form-control-sm detail-value" placeholder="รายละเอียด/สเปก" value="${escapeHtml(value)}">
+                        ${valueInputHtml}
                     </div>
                     <div class="col-1 text-end">
-                        <button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center justify-content-center p-0 shadow-sm" style="width: 28px; height: 28px;" onclick="removeDetailRow('${rowId}')">
-                            <i class="fa-solid fa-xmark text-white"></i>
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeDetailRow('${rowId}')" title="ลบรายการนี้">
+                            <i class="fa-solid fa-xmark"></i>
                         </button>
                     </div>
                 </div>
@@ -900,12 +1387,22 @@
         function getDetailListData() {
             const rows = document.querySelectorAll('.detail-item-row');
             const details = [];
-            rows.forEach(row => {
-                const title = row.querySelector('.detail-title').value.trim();
-                const value = row.querySelector('.detail-value').value.trim();
-                if (title || value) details.push({ title, value });
-            });
-            return details;
+            for (const row of rows) {
+                const titleInput = row.querySelector('.detail-title');
+                const valInput = row.querySelector('.detail-value');
+                const title = titleInput ? titleInput.value.trim() : '';
+                const value = valInput ? valInput.value.trim() : '';
+                const isReq = valInput?.getAttribute('data-required') === 'true';
+
+                if (isReq && !value) {
+                    return { error: `กรุณากรอกข้อมูลในหัวข้อ "${title}" (จำเป็น)` };
+                }
+
+                if (title || value) {
+                    details.push({ title, value });
+                }
+            }
+            return { data: details };
         }
 
         function clearDetailList() {
@@ -914,14 +1411,59 @@
 
         function populateDetailList(details) {
             clearDetailList();
+            
             if (typeof details === 'string') {
                 try { details = JSON.parse(details); } catch (e) { details = []; }
             }
-            if (Array.isArray(details) && details.length > 0) {
+            if (!Array.isArray(details)) {
+                details = [];
+            }
+
+            // แผนที่จับคู่ค่าเดิมที่บันทึกไว้ตามชื่อหัวข้อ
+            const savedMap = new Map();
+            details.forEach(item => {
+                const titleVal = (item.title || item.label || item.name || '').trim();
+                const valueVal = item.value !== undefined && item.value !== null ? String(item.value) : '';
+                if (titleVal) {
+                    savedMap.set(titleVal.toLowerCase(), { originalTitle: titleVal, value: valueVal });
+                }
+            });
+
+            // 1. ถ้าหมวดหมู่นี้มีหัวข้อสเปกมาตรฐาน (currentCategoryAttributes) ให้แสดงหัวข้อมาตรฐานทั้งหมด
+            if (Array.isArray(currentCategoryAttributes) && currentCategoryAttributes.length > 0) {
+                const processedTitles = new Set();
+
+                currentCategoryAttributes.forEach(attr => {
+                    const attrNameLower = attr.name.trim().toLowerCase();
+                    processedTitles.add(attrNameLower);
+
+                    let existingVal = '';
+                    if (savedMap.has(attrNameLower)) {
+                        existingVal = savedMap.get(attrNameLower).value;
+                    }
+
+                    addDetailRow(attr.name, existingVal, {
+                        input_type: attr.input_type || 'text',
+                        options: attr.options || '',
+                        is_required: Boolean(attr.is_required),
+                        is_category_preset: true
+                    });
+                });
+
+                // 2. ถ้ามีหัวข้อเดิมที่ผู้ใช้เคยพิมพ์ไว้เอง ที่ไม่อยู่ในแม่แบบมาตรฐานของหมวดหมู่ ให้แสดงต่อท้าย
+                details.forEach(item => {
+                    const titleVal = (item.title || item.label || item.name || '').trim();
+                    const valueVal = item.value !== undefined && item.value !== null ? String(item.value) : '';
+                    if (titleVal && !processedTitles.has(titleVal.toLowerCase())) {
+                        addDetailRow(titleVal, valueVal, { is_category_preset: false });
+                    }
+                });
+            } else if (details.length > 0) {
+                // ถ้าหมวดหมู่นี้ไม่มีแม่แบบ แต่ครุภัณฑ์นี้มีข้อมูลเดิม ให้แสดงข้อมูลเดิม
                 details.forEach(item => {
                     const titleVal = item.title || item.label || item.name || '';
                     const valueVal = item.value || '';
-                    addDetailRow(titleVal, valueVal);
+                    addDetailRow(titleVal, valueVal, { is_category_preset: false });
                 });
             } else {
                 addDetailRow();
@@ -1119,6 +1661,175 @@
             }
         }
 
+        let repairSelectedImageFile = null;
+        let repairRemoveImageFlag = false;
+        let repairReportPhotoFile = null;
+
+        function previewImageModal(src, title = '') {
+            const overlay = document.getElementById('imageLightboxOverlay');
+            const imgEl = document.getElementById('imageLightboxImg');
+            const titleEl = document.getElementById('imageLightboxTitle');
+            if (!overlay || !imgEl) return;
+
+            imgEl.src = src;
+            if (titleEl) {
+                titleEl.innerHTML = `<i class="fa-solid fa-image me-2 text-info"></i>รูปภาพครุภัณฑ์ ${title ? `(${escapeHtml(title)})` : ''}`;
+            }
+            overlay.classList.add('active');
+        }
+
+        function closeImageLightbox(e) {
+            if (e) e.stopPropagation();
+            const overlay = document.getElementById('imageLightboxOverlay');
+            if (!overlay) return;
+            overlay.classList.remove('active');
+            setTimeout(() => {
+                const imgEl = document.getElementById('imageLightboxImg');
+                if (imgEl && !overlay.classList.contains('active')) {
+                    imgEl.src = '';
+                }
+            }, 200);
+        }
+
+        // กดปุ่ม Escape เพื่อปิดหน้าต่างขยายรูปภาพ
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                const overlay = document.getElementById('imageLightboxOverlay');
+                if (overlay && overlay.classList.contains('active')) {
+                    e.stopImmediatePropagation();
+                    closeImageLightbox(e);
+                }
+            }
+        });
+
+        // จัดการรูปภาพในส่วนแก้ไขครุภัณฑ์
+        function handleRepairImageInputChange(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!file.type.startsWith('image/')) {
+                alert('กรุณาเลือกไฟล์รูปภาพเท่านั้น (JPG, PNG, WEBP)');
+                event.target.value = '';
+                return;
+            }
+
+            if (file.size > 10 * 1024 * 1024) {
+                alert('ขนาดไฟล์รูปภาพต้องไม่เกิน 10MB');
+                event.target.value = '';
+                return;
+            }
+
+            repairSelectedImageFile = file;
+            repairRemoveImageFlag = false;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const previewImg = document.getElementById('edit-image-preview');
+                const placeholder = document.getElementById('edit-image-placeholder');
+                const removeBtn = document.getElementById('btn-remove-edit-image');
+                if (previewImg) {
+                    previewImg.src = e.target.result;
+                    previewImg.style.display = 'block';
+                }
+                if (placeholder) placeholder.style.display = 'none';
+                if (removeBtn) removeBtn.style.display = 'inline-block';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function removeRepairSelectedImage() {
+            repairSelectedImageFile = null;
+            repairRemoveImageFlag = true;
+
+            const camInput = document.getElementById('edit-camera-input');
+            const galInput = document.getElementById('edit-gallery-input');
+            if (camInput) camInput.value = '';
+            if (galInput) galInput.value = '';
+
+            const previewImg = document.getElementById('edit-image-preview');
+            const placeholder = document.getElementById('edit-image-placeholder');
+            const removeBtn = document.getElementById('btn-remove-edit-image');
+
+            if (previewImg) {
+                previewImg.src = '';
+                previewImg.style.display = 'none';
+            }
+            if (placeholder) placeholder.style.display = 'block';
+            if (removeBtn) removeBtn.style.display = 'none';
+        }
+
+        function resetRepairImageInputUI(currentImageUrl = null) {
+            repairSelectedImageFile = null;
+            repairRemoveImageFlag = false;
+
+            const camInput = document.getElementById('edit-camera-input');
+            const galInput = document.getElementById('edit-gallery-input');
+            if (camInput) camInput.value = '';
+            if (galInput) galInput.value = '';
+
+            const previewImg = document.getElementById('edit-image-preview');
+            const placeholder = document.getElementById('edit-image-placeholder');
+            const removeBtn = document.getElementById('btn-remove-edit-image');
+
+            if (currentImageUrl) {
+                if (previewImg) {
+                    previewImg.src = currentImageUrl;
+                    previewImg.style.display = 'block';
+                }
+                if (placeholder) placeholder.style.display = 'none';
+                if (removeBtn) removeBtn.style.display = 'inline-block';
+            } else {
+                if (previewImg) {
+                    previewImg.src = '';
+                    previewImg.style.display = 'none';
+                }
+                if (placeholder) placeholder.style.display = 'block';
+                if (removeBtn) removeBtn.style.display = 'none';
+            }
+        }
+
+        // จัดการรูปภาพในส่วนส่งเรื่องแจ้งซ่อม (Repair Report Photo)
+        function handleRepairReportPhotoChange(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!file.type.startsWith('image/')) {
+                alert('กรุณาเลือกไฟล์รูปภาพเท่านั้น (JPG, PNG, WEBP)');
+                event.target.value = '';
+                return;
+            }
+
+            if (file.size > 10 * 1024 * 1024) {
+                alert('ขนาดไฟล์รูปภาพต้องไม่เกิน 10MB');
+                event.target.value = '';
+                return;
+            }
+
+            repairReportPhotoFile = file;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const previewImg = document.getElementById('repair-report-photo-preview');
+                const box = document.getElementById('repair-report-photo-preview-box');
+                if (previewImg) previewImg.src = e.target.result;
+                if (box) box.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function clearRepairReportPhoto() {
+            repairReportPhotoFile = null;
+            const camInput = document.getElementById('repair-report-camera-input');
+            const galInput = document.getElementById('repair-report-gallery-input');
+            if (camInput) camInput.value = '';
+            if (galInput) galInput.value = '';
+
+            const previewImg = document.getElementById('repair-report-photo-preview');
+            const box = document.getElementById('repair-report-photo-preview-box');
+            if (previewImg) previewImg.src = '';
+            if (box) box.style.display = 'none';
+        }
+
         function renderViewMode() {
             const eq = currentEquipment;
             
@@ -1143,6 +1854,38 @@
             document.getElementById('v-organization').textContent = eq.organization_name || (eq.organization ? eq.organization.name : '-');
             document.getElementById('v-status-badge').innerHTML = getStatusBadge(eq.status);
 
+            // แสดง/ซ่อนรูปภาพครุภัณฑ์
+            const imgCol = document.getElementById('v-image-col');
+            const infoCol = document.getElementById('v-info-col');
+            const imgEl = document.getElementById('v-image');
+
+            if (eq.image) {
+                if (imgEl) imgEl.src = `/uploads/${eq.image}`;
+                if (imgCol) imgCol.style.display = 'block';
+                if (infoCol) {
+                    infoCol.className = 'col-md-9';
+                }
+            } else {
+                if (imgCol) imgCol.style.display = 'none';
+                if (infoCol) {
+                    infoCol.className = 'col-md-12';
+                }
+            }
+
+            const regBanner = document.getElementById('reg-pending-banner');
+            if (regBanner) {
+                const isPendingReg = String(eq.status || '').trim() === 'รอลงทะเบียน';
+                if (isPendingReg) {
+                    regBanner.classList.remove('d-none');
+                    regBanner.classList.add('d-flex');
+                    regBanner.style.removeProperty('display');
+                } else {
+                    regBanner.classList.remove('d-flex');
+                    regBanner.classList.add('d-none');
+                    regBanner.style.setProperty('display', 'none', 'important');
+                }
+            }
+
             const btnSubmit = document.getElementById('btn-submit-repair');
             const msgDisabled = document.getElementById('repair-disabled-msg');
             const formContainer = document.getElementById('repair-form-container');
@@ -1158,7 +1901,7 @@
             }
         }
 
-        function toggleEditMode(forceState) {
+        async function toggleEditMode(forceState) {
             isEditMode = typeof forceState === 'boolean' ? forceState : !isEditMode;
             
             const btnToggle = document.getElementById('btn-toggle-edit');
@@ -1166,7 +1909,7 @@
             const editCard = document.getElementById('edit-mode-card');
 
             if (isEditMode) {
-                populateEditForm();
+                await populateEditForm();
                 applyPermissionRules();
                 viewCard.style.display = 'none';
                 editCard.style.display = 'block';
@@ -1180,21 +1923,64 @@
             }
         }
 
-        function populateEditForm() {
+        async function populateEditForm() {
             const eq = currentEquipment;
-            document.getElementById('edit-computer-name').value = eq.computer_name || eq.code || '';
+            const compInput = document.getElementById('edit-computer-name');
+            if (compInput) {
+                compInput.value = eq.computer_name || eq.code || '';
+                compInput.readOnly = true;
+                compInput.classList.add('bg-light');
+            }
             document.getElementById('edit-user-name').value = eq.user_name || '';
             document.getElementById('edit-position').value = eq.position || '';
             document.getElementById('edit-phone').value = eq.phone || '';
             document.getElementById('edit-email').value = eq.email || '';
-            document.getElementById('edit-category').value = eq.category_id || (eq.category ? eq.category.id : '');
+            
+            // โหลดรูปภาพเข้า edit form
+            if (eq.image) {
+                resetRepairImageInputUI(`/uploads/${eq.image}`);
+            } else {
+                resetRepairImageInputUI(null);
+            }
+
+            const catSelect = document.getElementById('edit-category');
+            if (catSelect) {
+                catSelect.value = eq.category_id || (eq.category ? eq.category.id : '');
+                catSelect.disabled = true;
+                catSelect.classList.add('bg-light');
+            }
             
             const deptSelect = document.getElementById('edit-department');
             deptSelect.value = eq.department_id || (eq.department ? eq.department.id : '');
 
             onDepartmentChange(eq.organization_name || (eq.organization ? eq.organization.name : ''));
 
-            document.getElementById('edit-status').value = eq.status || 'ใช้งานปกติ';
+            if (eq.status === 'รอลงทะเบียน') {
+                document.getElementById('edit-status').value = 'ใช้งานปกติ';
+            } else {
+                document.getElementById('edit-status').value = eq.status || 'ใช้งานปกติ';
+            }
+
+            // โหลดหัวข้อสเปกของหมวดหมู่เพื่อแสดงหัวข้อและจับคู่ type / options เหมือนใน equipments.html
+            let targetCatId = eq.category_id;
+            if (!targetCatId && eq.category_name && Array.isArray(categoryOptions)) {
+                const matchCat = categoryOptions.find(c => c.name === eq.category_name || (c.prefix && (eq.computer_name || eq.code) && (eq.computer_name || eq.code).startsWith(c.prefix)));
+                if (matchCat) targetCatId = matchCat.id;
+            }
+
+            if (targetCatId) {
+                try {
+                    const attrRes = await fetch(`/api/equipment-attributes?category_id=${targetCatId}`);
+                    if (attrRes.ok) {
+                        currentCategoryAttributes = await attrRes.json();
+                    } else {
+                        currentCategoryAttributes = [];
+                    }
+                } catch (e) { currentCategoryAttributes = []; }
+            } else {
+                currentCategoryAttributes = [];
+            }
+
             populateDetailList(eq.details || eq.spec || eq.remarks);
         }
 
@@ -1202,8 +1988,17 @@
             const storedRole = (localStorage.getItem('user_role') || '').toLowerCase();
             const deptSelect = document.getElementById('edit-department');
             const catSelect = document.getElementById('edit-category');
+            const compInput = document.getElementById('edit-computer-name');
             
-            if (catSelect) catSelect.disabled = false;
+            if (compInput) {
+                compInput.readOnly = true;
+                compInput.classList.add('bg-light');
+            }
+
+            if (catSelect) {
+                catSelect.disabled = true;
+                catSelect.classList.add('bg-light');
+            }
             
             if (storedRole === 'staff') {
                 if (deptSelect) deptSelect.disabled = true;
@@ -1215,29 +2010,44 @@
         async function saveEquipmentDetail() {
             if (!currentEquipment) return;
 
-            const computerName = document.getElementById('edit-computer-name').value.trim();
+            const compInput = document.getElementById('edit-computer-name');
+            const computerName = compInput ? compInput.value.trim() : (currentEquipment.computer_name || currentEquipment.code);
             if (!computerName) return alert('กรุณากรอกชื่อเครื่อง');
 
-            const payload = {
-                computer_name: computerName,
-                user_name: document.getElementById('edit-user-name').value.trim(),
-                position: document.getElementById('edit-position').value.trim(),
-                phone: document.getElementById('edit-phone').value.trim(),
-                email: document.getElementById('edit-email').value.trim(),
-                category_id: document.getElementById('edit-category').value,
-                department_id: document.getElementById('edit-department').value,
-                organization_name: document.getElementById('edit-organization').value,
-                status: document.getElementById('edit-status').value,
-                details: getDetailListData()
-            };
+            const detailsResult = getDetailListData();
+            if (detailsResult.error) {
+                return alert(detailsResult.error);
+            }
+
+            const catVal = document.getElementById('edit-category').value || (currentEquipment.category_id || (currentEquipment.category ? currentEquipment.category.id : ''));
+
+            const formData = new FormData();
+            formData.append('computer_name', computerName);
+            formData.append('user_name', document.getElementById('edit-user-name').value.trim());
+            formData.append('position', document.getElementById('edit-position').value.trim());
+            formData.append('phone', document.getElementById('edit-phone').value.trim());
+            formData.append('email', document.getElementById('edit-email').value.trim());
+            if (catVal) formData.append('category_id', catVal);
+            if (document.getElementById('edit-department').value) {
+                formData.append('department_id', document.getElementById('edit-department').value);
+            }
+            formData.append('organization_name', document.getElementById('edit-organization').value);
+            formData.append('status', document.getElementById('edit-status').value);
+            formData.append('details', JSON.stringify(detailsResult.data));
+
+            if (repairSelectedImageFile) {
+                formData.append('image', repairSelectedImageFile);
+            }
+            if (repairRemoveImageFlag) {
+                formData.append('remove_image', 'true');
+            }
 
             const targetIdentifier = currentEquipment.id || getEquipmentParam();
 
             try {
                 const res = await fetch(`/api/equipments/${encodeURIComponent(targetIdentifier)}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: formData
                 });
 
                 if (res.ok) {
@@ -1299,21 +2109,24 @@
             if (!reporter || !symptom) return alert('กรุณากรอกข้อมูลผู้แจ้งและอาการเสียให้ครบถ้วน');
 
             try {
-                const body = {
-                    equipment_id: targetIdentifier,
-                    reporter_name: reporter,
-                    symptom: symptom
-                };
+                const formData = new FormData();
+                formData.append('equipment_id', targetIdentifier);
+                formData.append('reporter_name', reporter);
+                formData.append('symptom', symptom);
+                if (repairReportPhotoFile) {
+                    formData.append('image', repairReportPhotoFile);
+                }
+
                 const res = await fetch('/api/repairs', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body)
+                    body: formData
                 });
                 const data = await res.json();
                 alert(data.message || 'ส่งเรื่องแจ้งซ่อมเรียบร้อย');
                 if (res.ok) {
                     document.getElementById('reporter').value = '';
                     document.getElementById('symptom').value = '';
+                    clearRepairReportPhoto();
                     loadEquipmentDetail();
                 }
             } catch (err) {
@@ -1332,6 +2145,8 @@
                     return `<span class="badge bg-warning text-dark">${status}</span>`;
                 case 'จำหน่าย': 
                     return `<span class="badge bg-danger">${status}</span>`;
+                case 'รอลงทะเบียน': 
+                    return `<span class="badge bg-warning text-dark"><i class="fa-solid fa-clock me-1"></i>รอลงทะเบียน</span>`;
                 default: 
                     return `<span class="badge bg-secondary">${status || 'ไม่ระบุ'}</span>`;
             }

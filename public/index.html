@@ -206,6 +206,10 @@
                 localStorage.setItem('isLoggedIn', 'true');
                 localStorage.setItem('user', JSON.stringify(userObj));
                 localStorage.setItem('user_session', JSON.stringify(userObj));
+                localStorage.setItem('user_id', userObj.id || '');
+                localStorage.setItem('user_role', (userObj.role || '').toLowerCase());
+                localStorage.setItem('user_fullname', userObj.fullname || userObj.username || '');
+                localStorage.setItem('user_dept_id', userObj.department_id || '');
                 
                 // สร้าง Session Cookie เพื่อตรวจจับกรณีปิด Browser
                 document.cookie = "browser_session_active=true; path=/; SameSite=Lax";

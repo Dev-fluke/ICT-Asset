@@ -29,7 +29,7 @@ if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// ตั้งค่า Storage สำหรับ Multer Upload
+// ตั้งค่า Storage สำหรับ Multer Upload (รองรับทั้ง avatar, equipment และรูปภาพการแจ้งซ่อม)
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         cb(null, 'uploads/');
@@ -37,13 +37,14 @@ const storage = multer.diskStorage({
     filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
         const ext = path.extname(file.originalname);
-        cb(null, 'avatar-' + uniqueSuffix + ext);
+        const prefix = (file.fieldname === 'avatar') ? 'avatar-' : 'img-';
+        cb(null, prefix + uniqueSuffix + ext);
     }
 });
 
 const upload = multer({ 
     storage: storage,
-    limits: { fileSize: 2 * 1024 * 1024 }, // จำกัดขนาด 2MB
+    limits: { fileSize: 10 * 1024 * 1024 }, // ขยายเป็น 10MB เพื่อรองรับรูปถ่ายครุภัณฑ์
     fileFilter: (req, file, cb) => {
         if (file.mimetype.startsWith('image/')) {
             cb(null, true);
@@ -66,9 +67,32 @@ const db = mysql.createPool({
     queueLimit: 0
 });
 
+const os = require('os');
+
+function getLocalIpAddress() {
+    try {
+        const nets = os.networkInterfaces();
+        for (const name of Object.keys(nets)) {
+            for (const net of nets[name]) {
+                if (net.family === 'IPv4' && !net.internal) {
+                    return net.address;
+                }
+            }
+        }
+    } catch (e) {}
+    return null;
+}
+
 const getQrCodeUrl = (req, computerName) => {
-    const protocol = req.protocol;
-    const host = req.get('host');
+    let host = req.get('host') || 'localhost:3000';
+    if (host.startsWith('localhost') || host.startsWith('127.0.0.1')) {
+        const localIp = getLocalIpAddress();
+        if (localIp) {
+            const port = host.split(':')[1] || '3000';
+            host = `${localIp}:${port}`;
+        }
+    }
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
     return `${protocol}://${host}/repair.html?code=${encodeURIComponent(computerName)}`;
 };
 
@@ -152,6 +176,97 @@ async function initSystemSettingsTable() {
     }
 }
 initSystemSettingsTable();
+
+// -------------------------------------------------------------------------
+// Helper: ตรวจสอบและสร้างคอลัมน์ sort_order สำหรับจัดลำดับ
+// -------------------------------------------------------------------------
+async function initSortOrderColumns() {
+    try {
+        const [cCols] = await db.query("SHOW COLUMNS FROM categories LIKE 'sort_order'");
+        if (cCols.length === 0) {
+            await db.query("ALTER TABLE categories ADD COLUMN sort_order INT DEFAULT 0");
+            await db.query("UPDATE categories SET sort_order = id WHERE sort_order = 0 OR sort_order IS NULL");
+        }
+
+        const [dCols] = await db.query("SHOW COLUMNS FROM departments LIKE 'sort_order'");
+        if (dCols.length === 0) {
+            await db.query("ALTER TABLE departments ADD COLUMN sort_order INT DEFAULT 0");
+            await db.query("UPDATE departments SET sort_order = id WHERE sort_order = 0 OR sort_order IS NULL");
+        }
+
+        const [oCols] = await db.query("SHOW COLUMNS FROM organizations LIKE 'sort_order'");
+        if (oCols.length === 0) {
+            await db.query("ALTER TABLE organizations ADD COLUMN sort_order INT DEFAULT 0");
+            await db.query("UPDATE organizations SET sort_order = id WHERE sort_order = 0 OR sort_order IS NULL");
+        }
+    } catch (err) {
+        console.error("Init sort_order columns error:", err.message);
+    }
+}
+initSortOrderColumns();
+
+// -------------------------------------------------------------------------
+// Helper: ตรวจสอบและสร้างคอลัมน์ category_id, input_type, options, is_required ใน equipment_attributes
+// -------------------------------------------------------------------------
+async function initEquipmentAttributesSchema() {
+    try {
+        const [cols] = await db.query('SHOW COLUMNS FROM equipment_attributes');
+        const colNames = cols.map(c => c.Field);
+        
+        if (!colNames.includes('category_id')) {
+            await db.query('ALTER TABLE equipment_attributes ADD COLUMN category_id INT NULL AFTER id');
+        }
+        if (!colNames.includes('input_type')) {
+            await db.query("ALTER TABLE equipment_attributes ADD COLUMN input_type VARCHAR(50) DEFAULT 'text' AFTER name");
+        }
+        if (!colNames.includes('options')) {
+            await db.query('ALTER TABLE equipment_attributes ADD COLUMN options TEXT NULL AFTER input_type');
+        }
+        if (!colNames.includes('is_required')) {
+            await db.query('ALTER TABLE equipment_attributes ADD COLUMN is_required TINYINT(1) DEFAULT 0 AFTER options');
+        }
+        
+        const [indexes] = await db.query("SHOW INDEX FROM equipment_attributes WHERE Column_name = 'category_id'");
+        if (indexes.length === 0) {
+            await db.query('ALTER TABLE equipment_attributes ADD INDEX idx_category_id (category_id)');
+        }
+    } catch (err) {
+        console.error("Init equipment_attributes schema error:", err.message);
+    }
+}
+initEquipmentAttributesSchema();
+
+// -------------------------------------------------------------------------
+// Helper: ตรวจสอบและสร้างคอลัมน์ image ใน equipments สำหรับจัดเก็บรูปภาพ
+// -------------------------------------------------------------------------
+async function initEquipmentImageColumn() {
+    try {
+        const [cols] = await db.query("SHOW COLUMNS FROM equipments LIKE 'image'");
+        if (cols.length === 0) {
+            await db.query("ALTER TABLE equipments ADD COLUMN image VARCHAR(255) NULL AFTER qr_code");
+            console.log("Added 'image' column to equipments table");
+        }
+    } catch (err) {
+        console.error("Init equipments image column error:", err.message);
+    }
+}
+initEquipmentImageColumn();
+
+// -------------------------------------------------------------------------
+// Helper: ตรวจสอบและสร้างคอลัมน์ image ใน repairs สำหรับจัดเก็บรูปถ่ายอาการเสีย
+// -------------------------------------------------------------------------
+async function initRepairsImageColumn() {
+    try {
+        const [cols] = await db.query("SHOW COLUMNS FROM repairs LIKE 'image'");
+        if (cols.length === 0) {
+            await db.query("ALTER TABLE repairs ADD COLUMN image VARCHAR(255) NULL AFTER symptom");
+            console.log("Added 'image' column to repairs table");
+        }
+    } catch (err) {
+        console.error("Init repairs image column error:", err.message);
+    }
+}
+initRepairsImageColumn();
 
 // =========================================================================
 // 3. Auth API (Login, Heartbeat & Activity Logs)
@@ -315,14 +430,35 @@ app.put('/api/system/settings', async (req, res) => {
     }
 });
 
+const crypto = require('crypto');
+
+function verifyWipePasskey(inputKey) {
+    if (!inputKey || typeof inputKey !== 'string') return false;
+    const trimmed = inputKey.trim();
+    if (process.env.DATA_WIPE_PASSKEY && trimmed === process.env.DATA_WIPE_PASSKEY.trim()) {
+        return true;
+    }
+    const hash = crypto.createHash('sha256').update(trimmed).digest('hex');
+    const expectedHash = 'bf96b3dc4d292679876f068d68917c18736156b450ced49d3e520a99676a2cfe';
+    try {
+        return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(expectedHash));
+    } catch {
+        return false;
+    }
+}
+
 app.delete('/api/system/clear-equipments', async (req, res) => {
     try {
+        const passkey = req.body?.passkey || req.headers['x-wipe-passkey'];
+        if (!verifyWipePasskey(passkey)) {
+            return res.status(403).json({ success: false, message: 'รหัสผ่านยืนยันความปลอดภัยไม่ถูกต้อง' });
+        }
+
         await db.query('SET FOREIGN_KEY_CHECKS = 0');
         await db.query('TRUNCATE TABLE equipments');
         await db.query('TRUNCATE TABLE repairs');
         await db.query('TRUNCATE TABLE repair_history');
-        await db.query('TRUNCATE TABLE equipment_audits');
-        await db.query('SET FOREIGN_KEY_CHECKS = 1');
+        await db.query('UPDATE categories SET last_seq = 0');
 
         const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
         await logActivity({
@@ -338,15 +474,21 @@ app.delete('/api/system/clear-equipments', async (req, res) => {
     } catch (err) {
         console.error('Error clearing equipments:', err);
         res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดในการล้างข้อมูลครุภัณฑ์: ' + err.message });
+    } finally {
+        await db.query('SET FOREIGN_KEY_CHECKS = 1').catch(() => {});
     }
 });
 
 app.delete('/api/system/clear-repairs', async (req, res) => {
     try {
+        const passkey = req.body?.passkey || req.headers['x-wipe-passkey'];
+        if (!verifyWipePasskey(passkey)) {
+            return res.status(403).json({ success: false, message: 'รหัสผ่านยืนยันความปลอดภัยไม่ถูกต้อง' });
+        }
+
         await db.query('SET FOREIGN_KEY_CHECKS = 0');
         await db.query('TRUNCATE TABLE repairs');
         await db.query('TRUNCATE TABLE repair_history');
-        await db.query('SET FOREIGN_KEY_CHECKS = 1');
 
         const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
         await logActivity({
@@ -362,6 +504,8 @@ app.delete('/api/system/clear-repairs', async (req, res) => {
     } catch (err) {
         console.error('Error clearing repairs:', err);
         res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดในการล้างประวัติการซ่อม: ' + err.message });
+    } finally {
+        await db.query('SET FOREIGN_KEY_CHECKS = 1').catch(() => {});
     }
 });
 
@@ -681,7 +825,7 @@ app.delete('/api/users/:id', async (req, res) => {
 // =========================================================================
 app.get('/api/categories', async (req, res) => {
     try {
-        const [rows] = await db.query('SELECT * FROM categories ORDER BY id ASC');
+        const [rows] = await db.query('SELECT * FROM categories ORDER BY sort_order ASC, id ASC');
         res.json(rows);
     } catch (err) {
         res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูลหมวดหมู่: ' + err.message });
@@ -690,28 +834,113 @@ app.get('/api/categories', async (req, res) => {
 
 app.post('/api/categories', async (req, res) => {
     try {
-        const { name } = req.body;
+        const { name, prefix } = req.body;
         if (!name || !name.trim()) return res.status(400).json({ message: 'กรุณาระบุชื่อหมวดหมู่' });
 
-        await db.query('INSERT INTO categories (name) VALUES (?)', [name.trim()]);
+        const cleanPrefix = prefix ? prefix.trim().toUpperCase() : null;
+        const [maxRes] = await db.query('SELECT MAX(sort_order) AS max_order FROM categories');
+        const nextOrder = (maxRes[0]?.max_order || 0) + 1;
+        await db.query('INSERT INTO categories (name, prefix, sort_order) VALUES (?, ?, ?)', [name.trim(), cleanPrefix, nextOrder]);
         res.status(201).json({ message: 'เพิ่มหมวดหมู่เรียบร้อยแล้ว' });
     } catch (err) {
         res.status(500).json({ message: 'เกิดข้อผิดพลาดในการเพิ่มหมวดหมู่: ' + (err.sqlMessage || err.message) });
     }
 });
 
+app.put('/api/categories/reorder', async (req, res) => {
+    const { items } = req.body;
+    if (!Array.isArray(items)) {
+        return res.status(400).json({ message: 'รูปแบบข้อมูลไม่ถูกต้อง' });
+    }
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+        for (const item of items) {
+            await connection.query(
+                'UPDATE categories SET sort_order = ? WHERE id = ?',
+                [item.sort_order, item.id]
+            );
+        }
+        await connection.commit();
+        res.json({ message: 'อัปเดตลำดับหมวดหมู่สำเร็จ' });
+    } catch (error) {
+        await connection.rollback();
+        console.error('Error reordering categories:', error);
+        res.status(500).json({ message: 'เกิดข้อผิดพลาดในการเปลี่ยนลำดับหมวดหมู่: ' + error.message });
+    } finally {
+        connection.release();
+    }
+});
+
 app.put('/api/categories/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const { name } = req.body;
+        const { name, prefix } = req.body;
         if (!name || !name.trim()) return res.status(400).json({ message: 'กรุณาระบุชื่อหมวดหมู่' });
 
-        const [result] = await db.query('UPDATE categories SET name = ? WHERE id = ?', [name.trim(), id]);
+        let sql = 'UPDATE categories SET name = ? WHERE id = ?';
+        let params = [name.trim(), id];
+        if (prefix !== undefined) {
+            sql = 'UPDATE categories SET name = ?, prefix = ? WHERE id = ?';
+            params = [name.trim(), prefix ? prefix.trim().toUpperCase() : null, id];
+        }
+
+        const [result] = await db.query(sql, params);
         if (result.affectedRows === 0) return res.status(404).json({ message: 'ไม่พบหมวดหมู่ที่ต้องการแก้ไข' });
 
         res.json({ message: 'แก้ไขหมวดหมู่สำเร็จ' });
     } catch (err) {
         res.status(500).json({ message: 'เกิดข้อผิดพลาดในการแก้ไขหมวดหมู่: ' + (err.sqlMessage || err.message) });
+    }
+});
+
+app.get('/api/categories/:id/next-code', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const [catRows] = await db.query('SELECT * FROM categories WHERE id = ?', [id]);
+        if (catRows.length === 0) return res.status(404).json({ message: 'ไม่พบหมวดหมู่' });
+
+        const cat = catRows[0];
+        const currentYearStr = (new Date().getFullYear() + 543).toString().substring(2, 4);
+
+        const [cntRows] = await db.query('SELECT COUNT(*) AS total FROM equipments WHERE category_id = ?', [id]);
+        let effectiveLastSeq = parseInt(cat.last_seq) || 0;
+        if (cntRows[0].total === 0 && effectiveLastSeq !== 0) {
+            effectiveLastSeq = 0;
+            await db.query('UPDATE categories SET last_seq = 0 WHERE id = ?', [id]).catch(() => {});
+        }
+
+        const nextSeq = effectiveLastSeq + 1;
+        const nextSeqStr = nextSeq.toString().padStart(3, '0');
+        const nextCode = cat.prefix ? `${cat.prefix}-${currentYearStr}-${nextSeqStr}` : '';
+
+        const [pendingRows] = await db.query(
+            "SELECT id, computer_name FROM equipments WHERE category_id = ? AND status = 'รอลงทะเบียน' ORDER BY id ASC LIMIT 50",
+            [id]
+        );
+
+        res.json({
+            prefix: cat.prefix || '',
+            last_seq: cat.last_seq || 0,
+            next_code: nextCode,
+            pending_items: pendingRows
+        });
+    } catch (err) {
+        res.status(500).json({ message: 'เกิดข้อผิดพลาด: ' + (err.sqlMessage || err.message) });
+    }
+});
+
+app.put('/api/categories/:id/prefix', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { prefix } = req.body;
+        if (!prefix || !prefix.trim()) return res.status(400).json({ message: 'กรุณาระบุตัวย่อ' });
+        const [result] = await db.query('UPDATE categories SET prefix = ? WHERE id = ?', [prefix.trim().toUpperCase(), id]);
+        if (result.affectedRows === 0) return res.status(404).json({ message: 'ไม่พบหมวดหมู่' });
+        res.json({ message: 'บันทึกตัวย่อสำเร็จ' });
+    } catch (err) {
+        res.status(500).json({ message: 'เกิดข้อผิดพลาด: ' + (err.sqlMessage || err.message) });
     }
 });
 
@@ -735,7 +964,7 @@ app.delete('/api/categories/:id', async (req, res) => {
 // =========================================================================
 app.get('/api/departments', async (req, res) => {
     try {
-        const [rows] = await db.query('SELECT * FROM departments ORDER BY id ASC');
+        const [rows] = await db.query('SELECT * FROM departments ORDER BY sort_order ASC, id ASC');
         res.json(rows);
     } catch (err) {
         res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูลสังกัด: ' + err.message });
@@ -747,10 +976,38 @@ app.post('/api/departments', async (req, res) => {
         const { name } = req.body;
         if (!name || !name.trim()) return res.status(400).json({ message: 'กรุณาระบุชื่อสังกัด' });
 
-        await db.query('INSERT INTO departments (name) VALUES (?)', [name.trim()]);
+        const [maxRes] = await db.query('SELECT MAX(sort_order) AS max_order FROM departments');
+        const nextOrder = (maxRes[0]?.max_order || 0) + 1;
+        await db.query('INSERT INTO departments (name, sort_order) VALUES (?, ?)', [name.trim(), nextOrder]);
         res.status(201).json({ message: 'เพิ่มสังกัดสำเร็จ' });
     } catch (err) {
         res.status(500).json({ message: 'เกิดข้อผิดพลาดในการเพิ่มสังกัด: ' + (err.sqlMessage || err.message) });
+    }
+});
+
+app.put('/api/departments/reorder', async (req, res) => {
+    const { items } = req.body;
+    if (!Array.isArray(items)) {
+        return res.status(400).json({ message: 'รูปแบบข้อมูลไม่ถูกต้อง' });
+    }
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+        for (const item of items) {
+            await connection.query(
+                'UPDATE departments SET sort_order = ? WHERE id = ?',
+                [item.sort_order, item.id]
+            );
+        }
+        await connection.commit();
+        res.json({ message: 'อัปเดตลำดับสังกัดสำเร็จ' });
+    } catch (error) {
+        await connection.rollback();
+        console.error('Error reordering departments:', error);
+        res.status(500).json({ message: 'เกิดข้อผิดพลาดในการเปลี่ยนลำดับสังกัด: ' + error.message });
+    } finally {
+        connection.release();
     }
 });
 
@@ -798,6 +1055,7 @@ app.get('/api/organizations', async (req, res) => {
             params.push(department_id);
         }
         
+        query += " ORDER BY o.sort_order ASC, o.id ASC";
         const [rows] = await db.query(query, params);
         res.json(rows);
     } catch (err) {
@@ -811,10 +1069,38 @@ app.post('/api/organizations', async (req, res) => {
         if (!name || !department_id) {
             return res.status(400).json({ message: 'กรุณากรอกข้อมูลให้ครบถ้วน' });
         }
-        await db.query("INSERT INTO organizations (name, department_id) VALUES (?, ?)", [name.trim(), department_id]);
+        const [maxRes] = await db.query('SELECT MAX(sort_order) AS max_order FROM organizations WHERE department_id = ?', [department_id]);
+        const nextOrder = (maxRes[0]?.max_order || 0) + 1;
+        await db.query("INSERT INTO organizations (name, department_id, sort_order) VALUES (?, ?, ?)", [name.trim(), department_id, nextOrder]);
         res.json({ message: 'บันทึกหน่วยงานสำเร็จ' });
     } catch (err) {
         res.status(500).json({ message: 'เกิดข้อผิดพลาดในการเพิ่มหน่วยงาน: ' + (err.sqlMessage || err.message) });
+    }
+});
+
+app.put('/api/organizations/reorder', async (req, res) => {
+    const { items } = req.body;
+    if (!Array.isArray(items)) {
+        return res.status(400).json({ message: 'รูปแบบข้อมูลไม่ถูกต้อง' });
+    }
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+        for (const item of items) {
+            await connection.query(
+                'UPDATE organizations SET sort_order = ? WHERE id = ?',
+                [item.sort_order, item.id]
+            );
+        }
+        await connection.commit();
+        res.json({ message: 'อัปเดตลำดับหน่วยงานสำเร็จ' });
+    } catch (error) {
+        await connection.rollback();
+        console.error('Error reordering organizations:', error);
+        res.status(500).json({ message: 'เกิดข้อผิดพลาดในการเปลี่ยนลำดับหน่วยงาน: ' + error.message });
+    } finally {
+        connection.release();
     }
 });
 
@@ -851,6 +1137,7 @@ app.get('/api/equipments', async (req, res) => {
                 COALESCE(e.status, 'ใช้งานปกติ') AS status, 
                 e.last_audited_at, 
                 e.qr_code,
+                e.image,
                 e.details,
                 e.created_at,
                 e.updated_at,
@@ -858,6 +1145,7 @@ app.get('/api/equipments', async (req, res) => {
                 COALESCE(d.name, '-') AS department_name,
                 lr.symptom AS repair_symptom,
                 lr.reporter_name AS repair_reporter_name,
+                lr.image AS repair_image,
                 lr.created_at AS repair_created_at,
                 lr.status AS repair_status
             FROM equipments e
@@ -865,7 +1153,7 @@ app.get('/api/equipments', async (req, res) => {
             LEFT JOIN departments d ON e.department_id = d.id
             LEFT JOIN organizations o ON e.organization_id = o.id
             LEFT JOIN (
-                SELECT r1.equipment_id, r1.symptom, r1.reporter_name, r1.created_at, r1.status
+                SELECT r1.equipment_id, r1.symptom, r1.reporter_name, r1.image, r1.created_at, r1.status
                 FROM repairs r1
                 INNER JOIN (
                     SELECT equipment_id, MAX(id) AS max_id
@@ -953,65 +1241,215 @@ app.get('/api/equipments/:id', async (req, res) => {
     }
 });
 
-app.post('/api/equipments', async (req, res) => {
-    try {
-        const { computer_name, user_name, position, email, phone, category_id, department_id, organization_id, sub_department_id, details } = req.body;
 
-        if (!computer_name) return res.status(400).json({ message: 'กรุณากรอกชื่อเครื่อง' });
+app.post('/api/equipments/generate-qr', async (req, res) => {
+    try {
+        const { category_id, count } = req.body;
+        const numCount = parseInt(count) || 0;
+        if (!category_id || numCount <= 0 || numCount > 100) {
+            return res.status(400).json({ message: 'ข้อมูลไม่ถูกต้อง (สร้างได้สูงสุด 100 ดวงต่อครั้ง)' });
+        }
+
+        const conn = await db.getConnection();
+        try {
+            await conn.beginTransaction();
+
+            const [catRows] = await conn.query('SELECT prefix, last_seq FROM categories WHERE id = ? FOR UPDATE', [category_id]);
+            if (catRows.length === 0) throw new Error('ไม่พบหมวดหมู่');
+            
+            const cat = catRows[0];
+            if (!cat.prefix) throw new Error('หมวดหมู่นี้ยังไม่ได้ตั้งตัวย่อ (Prefix)');
+
+            const currentYearStr = (new Date().getFullYear() + 543).toString().substring(2, 4);
+            let seq = parseInt(cat.last_seq) || 0;
+            const newEquipments = [];
+
+            for (let i = 0; i < numCount; i++) {
+                seq++;
+                const seqStr = seq.toString().padStart(3, '0');
+                const assetCode = `${cat.prefix}-${currentYearStr}-${seqStr}`;
+
+                const scanUrl = getQrCodeUrl(req, assetCode);
+                const qrCodeDataUrl = await QRCode.toDataURL(scanUrl);
+
+                const [resInsert] = await conn.query(
+                    'INSERT INTO equipments (computer_name, category_id, status, qr_code) VALUES (?, ?, "รอลงทะเบียน", ?)',
+                    [assetCode, category_id, qrCodeDataUrl]
+                );
+                
+                newEquipments.push({
+                    id: resInsert.insertId,
+                    computer_name: assetCode,
+                    qr_code: qrCodeDataUrl
+                });
+            }
+
+            await conn.query('UPDATE categories SET last_seq = ? WHERE id = ?', [seq, category_id]);
+            await conn.commit();
+
+            const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+            await logActivity({
+                user_id: req.headers['x-user-id'] || null,
+                username: req.headers['x-username'] || 'Admin',
+                action: 'GENERATE_QR',
+                description: `สร้าง QR Code ล่วงหน้าจำนวน ${numCount} ดวง สำหรับหมวดหมู่ ${cat.prefix}`,
+                target_type: 'EQUIPMENT',
+                target_id: category_id,
+                ip_address: clientIp
+            });
+
+            res.json({ message: 'สร้าง QR Code สำเร็จ', data: newEquipments });
+        } catch (e) {
+            await conn.rollback();
+            throw e;
+        } finally {
+            conn.release();
+        }
+    } catch (err) {
+        res.status(500).json({ message: 'เกิดข้อผิดพลาด: ' + (err.sqlMessage || err.message) });
+    }
+});
+
+app.post('/api/equipments', upload.single('image'), async (req, res) => {
+    try {
+        const { computer_name, user_name, position, email, phone, category_id, department_id, organization_id, sub_department_id, details, status } = req.body;
+
+        if (!computer_name) return res.status(400).json({ message: 'กรุณากรอกรหัสครุภัณฑ์/ชื่อเครื่อง' });
 
         const catId = category_id ? parseInt(category_id) : null;
         const deptId = department_id ? parseInt(department_id) : null;
         const orgId = (organization_id || sub_department_id) ? parseInt(organization_id || sub_department_id) : null;
-        const detailsJson = details ? JSON.stringify(details) : null;
+        
+        let detailsJson = null;
+        if (details) {
+            if (typeof details === 'string') {
+                try {
+                    JSON.parse(details);
+                    detailsJson = details;
+                } catch {
+                    detailsJson = JSON.stringify(details);
+                }
+            } else {
+                detailsJson = JSON.stringify(details);
+            }
+        }
+
+        const targetStatus = status || 'ใช้งานปกติ';
+        const imageFilename = req.file ? req.file.filename : null;
 
         const scanUrl = getQrCodeUrl(req, computer_name);
         const qrCodeDataUrl = await QRCode.toDataURL(scanUrl);
 
-        const query = `
-            INSERT INTO equipments (computer_name, user_name, position, email, phone, category_id, department_id, organization_id, details, qr_code, status) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ใช้งานปกติ')
-        `;
-        const [result] = await db.query(query, [
-            computer_name, 
-            user_name || null, 
-            position || null, 
-            email || null, 
-            phone || null, 
-            catId, 
-            deptId, 
-            orgId, 
-            detailsJson, 
-            qrCodeDataUrl
-        ]);
+        const [existing] = await db.query('SELECT id, status FROM equipments WHERE computer_name = ?', [computer_name]);
+
+        let resultId = null;
+        if (existing.length > 0) {
+            if (existing[0].status === 'รอลงทะเบียน') {
+                let updateSql = `
+                    UPDATE equipments 
+                    SET user_name = ?, position = ?, email = ?, phone = ?, category_id = ?, department_id = ?, organization_id = ?, details = ?, qr_code = ?, status = ?
+                `;
+                let updateParams = [
+                    user_name || null,
+                    position || null,
+                    email || null,
+                    phone || null,
+                    catId,
+                    deptId,
+                    orgId,
+                    detailsJson,
+                    qrCodeDataUrl,
+                    targetStatus
+                ];
+                if (imageFilename) {
+                    updateSql += `, image = ? `;
+                    updateParams.push(imageFilename);
+                }
+                updateSql += ` WHERE id = ?`;
+                updateParams.push(existing[0].id);
+
+                await db.query(updateSql, updateParams);
+                resultId = existing[0].id;
+            } else {
+                return res.status(400).json({ message: `รหัสครุภัณฑ์/ชื่อเครื่อง "${computer_name}" มีอยู่ในระบบแล้ว` });
+            }
+        } else {
+            const query = `
+                INSERT INTO equipments (computer_name, user_name, position, email, phone, category_id, department_id, organization_id, details, qr_code, image, status) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `;
+            const [result] = await db.query(query, [
+                computer_name, 
+                user_name || null, 
+                position || null, 
+                email || null, 
+                phone || null, 
+                catId, 
+                deptId, 
+                orgId, 
+                detailsJson, 
+                qrCodeDataUrl,
+                imageFilename,
+                targetStatus
+            ]);
+            resultId = result.insertId;
+
+            if (catId) {
+                const parts = computer_name.split('-');
+                if (parts.length === 3) {
+                    const parsedSeq = parseInt(parts[2], 10);
+                    if (!isNaN(parsedSeq)) {
+                        await db.query(`
+                            UPDATE categories 
+                            SET last_seq = GREATEST(COALESCE(last_seq, 0), ?) 
+                            WHERE id = ?
+                        `, [parsedSeq, catId]);
+                    }
+                }
+            }
+        }
 
         const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
         await logActivity({
             user_id: req.headers['x-user-id'] || null,
             username: req.headers['x-username'] || 'User',
             action: 'CREATE_EQUIPMENT',
-            description: `เพิ่มครุภัณฑ์ใหม่: ${computer_name} (${user_name || '-'})`,
+            description: `ลงทะเบียนครุภัณฑ์: ${computer_name} (${user_name || '-'})`,
             target_type: 'EQUIPMENT',
-            target_id: result.insertId,
+            target_id: resultId,
             ip_address: clientIp
         });
 
-        res.status(201).json({ message: 'บันทึกข้อมูลสำเร็จ' });
+        res.status(201).json({ message: 'บันทึกข้อมูลสำเร็จ', id: resultId });
     } catch (err) {
         res.status(500).json({ message: 'เกิดข้อผิดพลาด: ' + (err.sqlMessage || err.message) });
     }
 });
 
-app.put('/api/equipments/:id', async (req, res) => {
+app.put('/api/equipments/:id', upload.single('image'), async (req, res) => {
     try {
         const { id } = req.params;
-        const { computer_name, user_name, position, email, phone, category_id, department_id, organization_id, organization_name, status, details } = req.body;
+        const { computer_name, user_name, position, email, phone, category_id, department_id, organization_id, organization_name, status, details, remove_image } = req.body;
 
         if (!computer_name) return res.status(400).json({ message: 'กรุณากรอกชื่อเครื่อง' });
 
         const catId = category_id ? parseInt(category_id) : null;
         const deptId = department_id ? parseInt(department_id) : null;
         const orgId = organization_id ? parseInt(organization_id) : null;
-        const detailsJson = details ? JSON.stringify(details) : null;
+        
+        let detailsJson = null;
+        if (details) {
+            if (typeof details === 'string') {
+                try {
+                    JSON.parse(details);
+                    detailsJson = details;
+                } catch {
+                    detailsJson = JSON.stringify(details);
+                }
+            } else {
+                detailsJson = JSON.stringify(details);
+            }
+        }
 
         const scanUrl = getQrCodeUrl(req, computer_name);
         const qrCodeDataUrl = await QRCode.toDataURL(scanUrl);
@@ -1019,14 +1457,40 @@ app.put('/api/equipments/:id', async (req, res) => {
         const numId = parseInt(id, 10);
         const isValidNumber = !isNaN(numId);
 
+        // ดึงรูปเดิมของเครื่องนี้
+        const [current] = await db.query(
+            `SELECT id, image FROM equipments WHERE computer_name = ? ${isValidNumber ? 'OR id = ?' : ''}`, 
+            isValidNumber ? [id, numId] : [id]
+        );
+        if (current.length === 0) return res.status(404).json({ message: 'ไม่พบรายการที่ต้องการแก้ไข' });
+
+        let imageFilename = current[0].image;
+        if (req.file) {
+            if (imageFilename) {
+                const oldPath = path.join(__dirname, 'uploads', imageFilename);
+                if (fs.existsSync(oldPath)) {
+                    try { fs.unlinkSync(oldPath); } catch (e) { console.error('Delete old image error:', e); }
+                }
+            }
+            imageFilename = req.file.filename;
+        } else if (remove_image === 'true' || remove_image === true) {
+            if (imageFilename) {
+                const oldPath = path.join(__dirname, 'uploads', imageFilename);
+                if (fs.existsSync(oldPath)) {
+                    try { fs.unlinkSync(oldPath); } catch (e) { console.error('Delete old image error:', e); }
+                }
+            }
+            imageFilename = null;
+        }
+
         const sql = `
             UPDATE equipments 
-            SET computer_name = ?, user_name = ?, position = ?, email = ?, phone = ?, category_id = ?, department_id = ?, organization_id = ?, organization_name = ?, status = ?, details = ?, qr_code = ?
+            SET computer_name = ?, user_name = ?, position = ?, email = ?, phone = ?, category_id = ?, department_id = ?, organization_id = ?, organization_name = ?, status = ?, details = ?, qr_code = ?, image = ?
             WHERE computer_name = ? ${isValidNumber ? 'OR id = ?' : ''}
         `;
         const params = isValidNumber 
-            ? [computer_name, user_name || null, position || null, email || null, phone || null, catId, deptId, orgId, organization_name || null, status || 'ใช้งานปกติ', detailsJson, qrCodeDataUrl, id, numId]
-            : [computer_name, user_name || null, position || null, email || null, phone || null, catId, deptId, orgId, organization_name || null, status || 'ใช้งานปกติ', detailsJson, qrCodeDataUrl, id];
+            ? [computer_name, user_name || null, position || null, email || null, phone || null, catId, deptId, orgId, organization_name || null, status || 'ใช้งานปกติ', detailsJson, qrCodeDataUrl, imageFilename, id, numId]
+            : [computer_name, user_name || null, position || null, email || null, phone || null, catId, deptId, orgId, organization_name || null, status || 'ใช้งานปกติ', detailsJson, qrCodeDataUrl, imageFilename, id];
 
         const [result] = await db.query(sql, params);
 
@@ -1156,6 +1620,7 @@ app.get('/api/equipments/:id/repair-history', async (req, res) => {
                 r.equipment_id,
                 r.status AS repair_status,
                 CONCAT('แจ้งซ่อม: ', r.symptom) AS repair_note,
+                r.image AS repair_image,
                 COALESCE(r.reporter_name, 'ผู้ใช้งาน') AS repaired_by,
                 r.created_at AS action_date,
                 COALESCE(e.computer_name, ?) AS computer_name,
@@ -1187,11 +1652,19 @@ app.get('/api/equipments/:id/repair-history', async (req, res) => {
 app.delete('/api/equipments/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const [targetEq] = await db.query('SELECT computer_name FROM equipments WHERE id = ?', [id]);
+        const [targetEq] = await db.query('SELECT computer_name, image FROM equipments WHERE id = ?', [id]);
         const [result] = await db.query('DELETE FROM equipments WHERE id = ?', [id]);
 
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: 'ไม่พบรายการที่ต้องการลบ' });
+        }
+
+        // ลบรูปภาพออกจากเซิร์ฟเวอร์ถ้ามี
+        if (targetEq.length > 0 && targetEq[0].image) {
+            const oldPath = path.join(__dirname, 'uploads', targetEq[0].image);
+            if (fs.existsSync(oldPath)) {
+                try { fs.unlinkSync(oldPath); } catch (e) { console.error('Delete equipment image file error:', e); }
+            }
         }
 
         const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
@@ -1464,7 +1937,7 @@ app.get('/api/repairs', async (req, res) => {
     try {
         const query = `
             SELECT 
-                r.id, r.reporter_name, r.symptom, r.status, r.created_at,
+                r.id, r.reporter_name, r.symptom, r.image, r.status, r.created_at,
                 e.computer_name, e.user_name AS equipment_user
             FROM repairs r
             JOIN equipments e ON r.equipment_id = e.id
@@ -1477,16 +1950,17 @@ app.get('/api/repairs', async (req, res) => {
     }
 });
 
-app.post('/api/repairs', async (req, res) => {
+app.post('/api/repairs', upload.single('image'), async (req, res) => {
     const connection = await db.getConnection();
     try {
         await connection.beginTransaction();
         const { equipment_id, reporter_name, symptom } = req.body;
+        const imageFilename = req.file ? req.file.filename : null;
 
         const numId = parseInt(equipment_id, 10);
         const isValidNumber = !isNaN(numId);
 
-        const sql = `SELECT id FROM equipments WHERE computer_name = ? ${isValidNumber ? 'OR id = ?' : ''}`;
+        const sql = `SELECT id, computer_name FROM equipments WHERE computer_name = ? ${isValidNumber ? 'OR id = ?' : ''}`;
         const params = isValidNumber ? [equipment_id, numId] : [equipment_id];
 
         const [eqRows] = await connection.query(sql, params);
@@ -1495,8 +1969,8 @@ app.post('/api/repairs', async (req, res) => {
         const realEqId = eqRows[0].id;
 
         await connection.query(
-            'INSERT INTO repairs (equipment_id, reporter_name, symptom, status) VALUES (?, ?, ?, ?)',
-            [realEqId, reporter_name, symptom, 'รอดำเนินการ']
+            'INSERT INTO repairs (equipment_id, reporter_name, symptom, image, status) VALUES (?, ?, ?, ?, ?)',
+            [realEqId, reporter_name, symptom, imageFilename, 'รอดำเนินการ']
         );
 
         await connection.query('UPDATE equipments SET status = ? WHERE id = ?', ['ส่งซ่อม', realEqId]);
@@ -1567,9 +2041,15 @@ app.get('/api/repair-history', async (req, res) => {
 // =========================================================================
 app.get('/api/equipment-attributes', async (req, res) => {
     try {
-        const [rows] = await db.query(
-            'SELECT id, name, sort_order FROM equipment_attributes ORDER BY sort_order ASC, id ASC'
-        );
+        const { category_id } = req.query;
+        let query = 'SELECT id, category_id, name, input_type, options, is_required, sort_order FROM equipment_attributes';
+        const params = [];
+        if (category_id) {
+            query += ' WHERE category_id = ?';
+            params.push(parseInt(category_id, 10));
+        }
+        query += ' ORDER BY sort_order ASC, id ASC';
+        const [rows] = await db.query(query, params);
         res.json(rows);
     } catch (error) {
         console.error('Error fetching attributes:', error);
@@ -1578,26 +2058,37 @@ app.get('/api/equipment-attributes', async (req, res) => {
 });
 
 app.post('/api/equipment-attributes', async (req, res) => {
-    const { name } = req.body;
+    const { category_id, name, input_type, options, is_required } = req.body;
     if (!name || !name.trim()) {
         return res.status(400).json({ message: 'กรุณาระบุชื่อหัวข้อ' });
     }
 
     try {
-        const [maxResult] = await db.query(
-            'SELECT MAX(sort_order) AS maxOrder FROM equipment_attributes'
-        );
-        const nextOrder = (maxResult[0].maxOrder || 0) + 1;
+        const catId = category_id ? parseInt(category_id, 10) : null;
+        let maxSql = 'SELECT MAX(sort_order) AS maxOrder FROM equipment_attributes';
+        const maxParams = [];
+        if (catId) {
+            maxSql += ' WHERE category_id = ?';
+            maxParams.push(catId);
+        } else {
+            maxSql += ' WHERE category_id IS NULL';
+        }
+        const [maxResult] = await db.query(maxSql, maxParams);
+        const nextOrder = (maxResult[0]?.maxOrder || 0) + 1;
 
         const [result] = await db.query(
-            'INSERT INTO equipment_attributes (name, sort_order) VALUES (?, ?)',
-            [name.trim(), nextOrder]
+            'INSERT INTO equipment_attributes (category_id, name, input_type, options, is_required, sort_order) VALUES (?, ?, ?, ?, ?, ?)',
+            [catId, name.trim(), input_type || 'text', options ? options.trim() : null, is_required ? 1 : 0, nextOrder]
         );
 
         res.status(201).json({
             message: 'เพิ่มหัวข้อสำเร็จ',
             id: result.insertId,
+            category_id: catId,
             name: name.trim(),
+            input_type: input_type || 'text',
+            options: options ? options.trim() : null,
+            is_required: is_required ? 1 : 0,
             sort_order: nextOrder
         });
     } catch (error) {
@@ -1637,7 +2128,7 @@ app.put('/api/equipment-attributes/reorder', async (req, res) => {
 
 app.put('/api/equipment-attributes/:id', async (req, res) => {
     const { id } = req.params;
-    const { name } = req.body;
+    const { name, input_type, options, is_required } = req.body;
 
     if (!name || !name.trim()) {
         return res.status(400).json({ message: 'กรุณาระบุชื่อหัวข้อ' });
@@ -1645,8 +2136,8 @@ app.put('/api/equipment-attributes/:id', async (req, res) => {
 
     try {
         const [result] = await db.query(
-            'UPDATE equipment_attributes SET name = ? WHERE id = ?',
-            [name.trim(), id]
+            'UPDATE equipment_attributes SET name = ?, input_type = COALESCE(?, input_type), options = ?, is_required = ? WHERE id = ?',
+            [name.trim(), input_type || 'text', options !== undefined ? (options ? options.trim() : null) : null, is_required ? 1 : 0, id]
         );
 
         if (result.affectedRows === 0) {
